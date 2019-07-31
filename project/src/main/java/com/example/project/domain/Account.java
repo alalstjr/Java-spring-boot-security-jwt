@@ -13,11 +13,12 @@ import javax.validation.constraints.NotBlank;
 import com.example.project.enums.UserRole;
 
 import lombok.AccessLevel;
+import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-@Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
+@Getter
 @Entity
 @Table(name = "ACCOUNT")
 public class Account {
@@ -26,7 +27,7 @@ public class Account {
 	@Column(name = "id")
 	private Long id;
 	
-	@Column(name = "ACCOUNT_ID", nullable = false)
+	@Column(name = "ACCOUNT_ID", nullable = false, unique = true)
 	@NotBlank(message = "아이디는 비워둘 수 없습니다.")
 	private String userId;
 	
@@ -40,12 +41,12 @@ public class Account {
 	
 	@Column(name = "ACCOUN_ROLE", nullable = false)
 	@Enumerated(value = EnumType.STRING)
-	public UserRole userRole = UserRole.USER;
+	public UserRole userRole = UserRole.USER; 
 	
-	public Account(String userId, String username, String password, UserRole role) {
+	@Builder
+	public Account(String userId, String username, String password) {
 		this.userId = userId;
 		this.username = username;
 		this.password = password;
-		this.userRole = role;
 	}
 }

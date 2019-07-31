@@ -251,8 +251,8 @@ stack overFlow 오류 해결 과정 모범 답안 입니다.
 > project.domain.Account
 
 ~~~
-@Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
+@Getter
 @Entity
 @Table(name = "ACCOUNT")
 public class Account {
@@ -261,7 +261,7 @@ public class Account {
 	@Column(name = "id")
 	private Long id;
 	
-	@Column(name = "ACCOUNT_ID", nullable = false)
+	@Column(name = "ACCOUNT_ID", nullable = false, unique = true)
 	@NotBlank(message = "아이디는 비워둘 수 없습니다.")
 	private String userId;
 	
@@ -275,13 +275,13 @@ public class Account {
 	
 	@Column(name = "ACCOUN_ROLE", nullable = false)
 	@Enumerated(value = EnumType.STRING)
-	public UserRole userRole = UserRole.USER;
+	public UserRole userRole = UserRole.USER; 
 	
-	public Account(String userId, String username, String password, UserRole role) {
+	@Builder
+	public Account(String userId, String username, String password) {
 		this.userId = userId;
 		this.username = username;
 		this.password = password;
-		this.userRole = role;
 	}
 }
 ~~~
@@ -290,7 +290,7 @@ public class Account {
 - `@Entity` - 엔티티 클래스임을 지정하며 테이블과 매핑되도록 합니다.
 - `@Table` - 엔티티가 매핑될 테이블을 지정하고 생략시 엔티티 클래스 이름과 같은 테이블로 매핑된다.
 - `@Id` - 해당 프로퍼티가 테이블의 주키(primary key) 역할을 한다는 것을 나타낸다
-- `@GeneratedValue` - 주키의 값을 위한 자동 생성 전략을 명시하는데 사용한다. 
+- `@GeneratedValue` - 주키의 값을 위한 자동 생성 전략을 명시하는데 사용한다. 기본값은 AUTO 로, MySQL의 auto_increment와 같이 자동증가하는 정수형 값이 됩니다.
 - `@Column` - 칼럼의 이름을 이용하여 지정된 필드나 속성을 테이블의 칼럼에 매핑 한다. 생략되면 속성과 같은 이름의 칼럼으로 매핑된다. 칼럼의 NULL 허용여부, 길이등을 속성으로 표시한다. 칼럼의 기본값은 columnDefinition 으로 정의하면 된다. columnDefinition = "number(5) default 0"
 
 domain 클래스를 보시면 `setter가 없습니다.` 
@@ -298,12 +298,38 @@ domain 클래스를 보시면 `setter가 없습니다.`
 domain 인스턴스에 변경이 필요한 이벤트가 있을 경우 그 이벤트를 나타낼 수 있는 메소드를 만들어야하며, `무분별하게 값을 변경하는 setter는 최대한 멀리`하시는게 좋습니다.
 (예를 들어, 주문취소 같은 경우 `setOrderStatus()가 아니라 cancelOrder()`를 만들어서 사용하는 것입니다.
 똑같이 orderStatus를 변경할지라도, `그 의도와 사용범위가 명확한 메소드`를 만드는것이 중요합니다.)
+~~~
+잘못된 사용
+public class Order{
+    public void setStatus(boolean status){
+        this.status = status
+    }
+}
 
-기본 생성자 또한 `@NoArgsConstructor(access = AccessLevel.PUBLIC)` lombok 어노테이션으로 처리하였는데
-접근 권한을 최소화 하기 위해서 사용했습니다.
-JPA에서는 프록시를 생성을 위해서 기본 생성자를 반드시 하나를 생성해야합니다. 
-기본 생성자를 아무 이유 없이 열어두는 것은 객체 생성 시 안전성을 심각하게 떨어트린다고 생각합니다
-이때 접근 권한이 protected 이면 됩니다. 굳이 외부에서 생성을 열어둘 필요가 없습니다.
+public void 주문서비스의_취소메소드 (){
+   order.setStatus(false);
+}
+
+올바른 사용
+public class Order{
+    public void cancelOrder(){
+        this.status = false;
+    }
+}
+public void 주문서비스의_취소메소드 (){
+   order.cancelOrder();
+}
+~~~
+
+기본 생성자 또한 `@NoArgsConstructor(access = AccessLevel.PROTECTED)` lombok 어노테이션으로 처리하였는데
+`접근 권한을 최소화 하기 위해`서 사용했습니다.
+JPA에서는 `프록시를 생성을 위해서 기본 생성자를 반드시 하나를 생성`해야합니다. 
+`기본 생성자를 아무 이유 없이 열어두는 것은 객체 생성 시 안전성`을 심각하게 떨어트린다고 생각합니다
+이때 접근 권한이 protected 이면 됩니다. 굳이 `외부에서 생성을 열어둘 필요가 없습니다.`
+
+- `@Builder` - 해당 클래스의 빌더패턴 클래스를 생성 (생성자 상단에 선언시 생성자에 포함된 필드만 빌더에 포함)
+
+
 
 ### UserRole Enum 열거형 상수 정의
 
@@ -341,14 +367,14 @@ Enum을 사용하면서 우리가 얻을 수 있는 이점
 
 #### Enum 관리 모듈
 
-> project.controller.AuthController
+> project.controller.EnumController
 
 특정 enum 타입이 갖고 있는 모든 값을 출력시키는 기능은 Class의 getEnumConstants() 메소드를 사용하면 쉽게 해결할 수 있습니다.
 enum의 리스트는 select box 즉, view영역에 제공되어야 하기 때문에 Controller에서 전달하도록 만들어보겠습니다.
 
 ~~~
 @RestController
-public class AuthController {
+public class EnumController {
 	@GetMapping("/enum")
 	public Map<String, Object> getEnum() {
 		Map<String, Object> enums = new LinkedHashMap<String, Object>();
@@ -440,7 +466,7 @@ EnumValue는 생성자 인자로 위에서 만든 EnumModel을 받도록 하여 
 
 Controller에 EnumValue를 이용한 메소드를 추가해보겠습니다.
 
-> project.controller.AuthController
+> project.controller.EnumController
 
 ~~~
 ...생략
@@ -541,13 +567,13 @@ public class AppConfig {
 
 Mapper 확인을 위해서 Controller 추가도 하겠습니다.
 
-> project.controller.AuthController
+> project.controller.EnumController
 
 ~~~
 ... 생략
     private EnumMapper enumMapper;
 
-    public AuthController(EnumMapper enumMapper) {
+    public EnumController(EnumMapper enumMapper) {
         this.enumMapper = enumMapper;
     }
 
@@ -604,6 +630,62 @@ public class ProjectApplicationTests {
 
 ## 세번째 REST APIS 만들기
 
+> project.service.UserService
+
+우선 Service Interface 만들어 줍니다.
+
+~~~
+public interface UserService extends UserDetailsService {
+	public Optional<Account> findById(String userId);
+	public Account saveOrUpdateUser(Account user);
+	public void deleteUser(String userId);
+	public PasswordEncoder passwordEncoder();
+}
+~~~
+
+- UserDetailsService 인터페이스를 상속 받고있는데 DB에서 유저 정보를 가져오는 역할을 합니다.
+- findById 유저의 Id 값을 DB에서 조회하는 역할을 합니다.
+- saveOrUpdateUser 유저의 정보를 DB에 생성or변경 역할을 합니다.
+- PasswordEncoder 암호화와 비교화 작업 역할을 합니다.
+
+> project.service.UserServiceImpl
+
+~~~
+public class UserServiceImpl implements UserService {
+
+	@Override
+	public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+	@Override
+	public Optional<Account> findById(String userId) {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+	@Override
+	public Account saveOrUpdateUser(Account user) {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+	@Override
+	public void deleteUser(String userId) {
+		// TODO Auto-generated method stub
+		
+	}
+
+	@Override
+	public PasswordEncoder passwordEncoder() {
+		// TODO Auto-generated method stub
+		return null;
+	}
+	
+}
+~~~
+
 > project.controller.AuthController
 
 유저 리소스 용 REST API 
@@ -634,6 +716,8 @@ https://12bme.tistory.com/271 - [개발방법론 계층별, 기능별 패키지 
 http://www.chidoo.me/index.php/2016/05/08/spring-data-jpa-for-short-memories/ - [JPA Repository CrudRepository, JpaRepository]
 
 https://cheese10yun.github.io/lombok/ - [실무에서 Lombok 사용법-getter, setter 무분별 사용 막자]
+
+https://www.feelteller.com/10 - [빌더]
 
 싱글톤 패턴
 
