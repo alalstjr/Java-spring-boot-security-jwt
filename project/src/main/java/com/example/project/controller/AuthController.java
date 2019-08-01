@@ -2,6 +2,7 @@ package com.example.project.controller;
 
 import javax.validation.Valid;
 
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.userdetails.User;
 import org.springframework.validation.BindingResult;
@@ -11,19 +12,26 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.example.project.domain.Account;
+import com.example.project.dto.AccountSaveRequestDto;
 import com.example.project.serviceImpl.UserServiceImpl;
 
+import lombok.AllArgsConstructor;
+
 @RestController
+@AllArgsConstructor
 @RequestMapping("/api/user")
 public class AuthController {
 	
-	UserServiceImpl userServiceImpl;
+	private UserServiceImpl userServiceImpl;
 	
-//	@PostMapping("")
-//	public ResponseEntity<?> insertUser(
-//			@Valid @RequestBody User account,
-//			BindingResult result
-//			) {
-//		Account account = userServiceImpl.saveOrUpdateUser(account);
-//	}
+	// CREATE	
+	@PostMapping("")
+	public ResponseEntity<?> insertUser(
+			@Valid @RequestBody AccountSaveRequestDto dto,
+			BindingResult result
+			) {
+		Account newAccount = userServiceImpl.saveOrUpdateUser(dto);
+		
+		return new ResponseEntity<Account>(newAccount, HttpStatus.CREATED);
+	}
 }

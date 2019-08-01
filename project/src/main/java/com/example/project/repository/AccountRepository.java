@@ -8,5 +8,5 @@ import org.springframework.security.core.userdetails.User;
 import com.example.project.domain.Account;
 
 public interface AccountRepository extends JpaRepository<Account, Long>{
-	Account findByUserId(String userId);
+	
 }

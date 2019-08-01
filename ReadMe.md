@@ -170,11 +170,11 @@ Payload 부분에는 `토큰에 담을 정보`가 들어있습니다.
 공개 클레임들은 `충돌이 방지된 (collision-resistant)` 이름을 가지고 있어야 합니다. 
 충돌을 방지하기 위해서는, `클레임 이름을 URI 형식`으로 짓습니다.
 
-{% highlight matlab %}
+~~~
 {
     "http://localhost:3000/boardEvent/write": true
 }
-{% endhighlight %}
+~~~
 
 #### 비공개 (private) 클레임
 
@@ -182,15 +182,15 @@ Payload 부분에는 `토큰에 담을 정보`가 들어있습니다.
 양 측간에 (보통 클라이언트 <->서버) 협의하에 사용되는 클레임 이름들입니다. 
 공개 클레임과는 달리 이름이 중복되어 충돌이 될 수 있으니 사용할때에 유의해야합니다.
 
-{% highlight matlab %}
+~~~
 {
     "username": "jjunpro"
 }
-{% endhighlight %}
+~~~
  
 결국 JWT Token 을 전체적으로 확인해보면 
 
-{% highlight matlab %}
+~~~
 {
     "iss": "admin",
     "exp": "148794004800",
@@ -198,7 +198,7 @@ Payload 부분에는 `토큰에 담을 정보`가 들어있습니다.
     "userId": "38048322648",
     "username": "jjunpro"
 }
-{% endhighlight %}
+~~~
 
 이런 형식의 토큰 코드가 완성됩니다.
 
@@ -217,6 +217,7 @@ Spring Boot 프로젝트를 만드는 가장 빠른 방법은 <a href=" http://s
  - Spring Security
  - Spring Data JPA
  - Lombok 
+ - Spring Boot DevTools (원한다면 설치합니다. 개발환경을 쉽게 맞춰줍니다.)
 
 ![spring-Initializr](/images/spring-Initializr.png)
 
@@ -245,6 +246,35 @@ https://stackoverflow.com/questions/56142369/why-am-i-getting-unknown-error-in-l
 https://stackoverflow.com/questions/56154266/why-does-change-from-spring-boot-version-2-1-4-to-2-1-5-gives-unknown-configurat
 
 stack overFlow 오류 해결 과정 모범 답안 입니다. 
+
+## Spring Security 인증 일시 해제
+
+![project-import](/images/spring-security-auth.png)
+
+프로젝트를 가동시킨 후 local 서버로 접속하면 다음과 같은 인증 화면이 초기에 나오도록 되어있습니다.
+하지만 저는 개발자 입장으로 수시로 서버에 api 값을 전송하고 받아야하는데 인증 화면이 계속해서 나오면
+많이 곤란합니다. spring security 초기값 인증을 풀어줄 수 있도록 하겠습니다.
+
+> project.config.SecurityConfig
+
+~~~
+@Configuration
+@EnableWebSecurity
+public class SecurityConfig extends WebSecurityConfigurerAdapter {
+
+	@Override
+	protected void configure(HttpSecurity http) throws Exception {
+		http
+		.csrf()
+		.disable();
+		
+		http
+		.headers()
+		.frameOptions() 
+		.disable();	
+	}
+}
+~~~
 
 ## 첫번째 JPA 엔티티 Domain Class 만들기
 
@@ -329,7 +359,37 @@ JPA에서는 `프록시를 생성을 위해서 기본 생성자를 반드시 하
 
 - `@Builder` - 해당 클래스의 빌더패턴 클래스를 생성 (생성자 상단에 선언시 생성자에 포함된 필드만 빌더에 포함)
 
+기본생성자도 `AccessLevel.PROTECTED로 막아놓고`, 
+`setter 메소드도 없는 이 상황`에서 어떻게 값을 채워 `DB에 insert` 해야할까요?
 
+기본적인 구조는 `생성자를 통해 최종 값을 채운후 DB에 Insert` 하는것이며, 
+값 `변경이 필요한 경우 해당 이벤트에 맞는 public 메소드를 호출`하여 변경하는 것을 전제로 합니다. 
+여기서 `생성자 대신에 @Builder`를 통해 제공되는 빌더 클래스를 사용합니다. 
+생성자나 빌더나 생성시점에 값을 채워주는 역할은 똑같습니다. 
+다만, `생성자의 경우 지금 채워야할 필드가 무엇인지 명확히 지정할수가 없습니다.`
+예를 들어 아래와 같은 생성자가 있다면
+
+~~~
+public Example(String a, String b){
+    this.a = a;
+    this.b = b;
+}
+~~~
+
+개발자가 new Example(b,a)처럼 `a와 b의 위치를 변경 해도` 실제로 코드를 실행하기전까진 전혀 `문제를 찾을수가 없습니다. `
+
+하지만 빌더를 사용하게 되면 아래와 같이
+
+~~~
+Example.builder()
+    .a(a)
+    .b(b)
+    .build();
+~~~
+
+어느 필드에 `어떤 값을 채워야 할지 명확하게 인지`할 수 있습니다.
+
+[https://using.tistory.com/71] - 빌더 패턴 소개
 
 ### UserRole Enum 열거형 상수 정의
 
@@ -587,39 +647,66 @@ Mapper 확인을 위해서 Controller 추가도 하겠습니다.
 
 ~~~
 public interface AccountRepository extends JpaRepository<Account, Long>{
-	Optional<Account> findByUserId(String userId);
+
 }
 ~~~
+
+보통 `ibatis/MyBatis 등에서 Dao`라고 불리는 `DB Layer 접근자`입니다. 
+`JPA에선 Repository`라고 부르며 `인터페이스로 생성`합니다.
+단순히 인터페이스를 생성후, 
+`JpaRepository<Entity클래스, PK타입>를 상속`하면 기본적인 `CRUD 메소드가 자동생성` 됩니다. 
+특별히 @Repository를 추가할 필요도 없습니다.
 
 ### repository save & find Test
 
 > src/test/java.ProjectApplicationTests
 
+DB가 설치가 안되어있는데 Repository를 사용할 수 있는 이유는, 
+`SpringBoot에서의 테스트 코드는 메모리 DB인 H2를 기본적으로 사용`하기 때문입니다. 
+테스트 코드를 실행하는 시점에 H2 DB를 실행시킵니다. 
+테스트가 끝나면 `H2 DB도 같이 종료`됩니다.
+
 정상적으로 save & find 가 잘되는지 Test를 해보겠습니다.
 
 ~~~
+import static org.hamcrest.CoreMatchers.is;
+import static org.junit.Assert.assertThat;
+
 @RunWith(SpringRunner.class)
 @SpringBootTest
 public class ProjectApplicationTests {
 
 	@Autowired
-	private AccountRepository repository;
+	private AccountRepository accountRepository;
 	
+	@After
+	public void cleanup() {
+        /** 
+        	이후 테스트 코드에 영향을 끼치지 않기 위해 
+        	테스트 메소드가 끝날때 마다 respository 전체 비우는 코드
+        **/
+		accountRepository.deleteAll();
+	}
+
 	@Test
-	public void contextLoads() {
-		Account account = new Account(
-				"ID",
-				"NAME",
-				"PASSWORD",
-				UserRole.USER
+	public void userInsert() {
+		//given
+		accountRepository.save(
+				Account.builder()
+				.userId("유저아이디")
+				.username("유저이름")
+				.password("비밀번호")
+				.build()
 				);
 		
-		repository.save(account);
-		Account saved = repository.findAll().get(0);
-		assertThat(saved.getUserId(), is("ID"));
-		assertThat(saved.getUsername(), is("NAME"));
-		assertThat(saved.getPassword(), is("PASSWORD"));
-		assertThat(saved.getUserRole(), is(UserRole.USER));
+		// when
+		List<Account> userList = accountRepository.findAll();
+		
+		// then
+		Account account = userList.get(0);
+		assertThat(account.getUserId(), is("유저아이디"));
+		assertThat(account.getUsername(), is("유저이름"));
+		assertThat(account.getPassword(), is("비밀번호"));
 	}
 }
 ~~~
@@ -627,76 +714,259 @@ public class ProjectApplicationTests {
 ![project-import](/images/repository-test.png)
 
 정상적으로 생성하고 값을 가져오는것을 확인 할 수 있습니다.
+생성자가 아닌 builder 로 값을 생성하는 것까지도 확인할 수 있었습니다.
+
+- `given`
+	- 테스트 기반 환경을 구축하는 단계
+	- 여기선
+	- @builder의 사용법도 같이 확인
+- `when`
+	- 테스트 하고자 하는 행위 선언
+	- 여기선 Posts가 DB에 insert 되는것을 확인하기 위함
+- `then`
+	- 테스트 결과 검증
+	- 실제로 DB에 insert 되었는지 확인하기 위해 조회후, 입력된 값 확인
+
+[https://www.youtube.com/watch?v=tyZMdwT3rIY] - JUnit 강좌 영상
+
+given, when, then은 BDD(Behaviour-Driven Development)에서 사용하는 용어입니다. 
+JUnit에선 이를 명시적으로 지원해주지 않아 주석으로 표현했습니다. 
+
+[https://jojoldu.tistory.com/228] - 전문 BDD 프레임워크로 Groovy기반의 Spock
+
+이제 정상적으로 DB에 자료가 쌓이는지 확인하기 위해서 Controller 를 구현하여 직접 눈으로 확인해 보겠습니다.
 
 ## 세번째 REST APIS 만들기
 
+### UserService 구현하기
+
 > project.service.UserService
 
+모든 행동은 Controller 에서 행하지 않고 Service에서 따로 행동하도록 하겠습니다. 
 우선 Service Interface 만들어 줍니다.
 
 ~~~
-public interface UserService extends UserDetailsService {
-	public Optional<Account> findById(String userId);
-	public Account saveOrUpdateUser(Account user);
-	public void deleteUser(String userId);
-	public PasswordEncoder passwordEncoder();
+public interface UserService {
+	public Account saveOrUpdateUser(AccountSaveRequestDto dto);
 }
 ~~~
 
-- UserDetailsService 인터페이스를 상속 받고있는데 DB에서 유저 정보를 가져오는 역할을 합니다.
-- findById 유저의 Id 값을 DB에서 조회하는 역할을 합니다.
 - saveOrUpdateUser 유저의 정보를 DB에 생성or변경 역할을 합니다.
-- PasswordEncoder 암호화와 비교화 작업 역할을 합니다.
+<!-- - UserDetailsService 인터페이스를 상속 받고있는데 DB에서 유저 정보를 가져오는 역할을 합니다.
+- findById 유저의 Id 값을 DB에서 조회하는 역할을 합니다.
+- PasswordEncoder 암호화와 비교화 작업 역할을 합니다. -->
 
-> project.service.UserServiceImpl
-
+> project.serviceImpl.UserServiceImpl
+ 
 ~~~
+@Service
+@AllArgsConstructor
 public class UserServiceImpl implements UserService {
 
-	@Override
-	public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
-		// TODO Auto-generated method stub
-		return null;
-	}
+	private AccountRepository accountRepository;
 
 	@Override
-	public Optional<Account> findById(String userId) {
-		// TODO Auto-generated method stub
-		return null;
-	}
+	public Account saveOrUpdateUser(AccountSaveRequestDto dto) {
+		String rawPassword = dto.getPassword();
+		String encodedPassword = new BCryptPasswordEncoder().encode(rawPassword);
+		dto.setPassword(encodedPassword);
 
-	@Override
-	public Account saveOrUpdateUser(Account user) {
-		// TODO Auto-generated method stub
-		return null;
-	}
-
-	@Override
-	public void deleteUser(String userId) {
-		// TODO Auto-generated method stub
+		// 기존의 password 값을 spring BCryptPasswordEncoder 클래스로 암호화 하여 저장합니다.
 		
+		return accountRepository.save(dto.toEntity());
 	}
 
-	@Override
-	public PasswordEncoder passwordEncoder() {
-		// TODO Auto-generated method stub
-		return null;
-	}
-	
 }
 ~~~
 
-> project.controller.AuthController
+보시면 `AccountRepository 필드에 @Autowired가 없습니다.`
+스프링프레임워크에선 `Bean 을 주입받는 방식`들이 아래와 같이 있는데요.
+
+- @Autowired
+- setter
+- 생성자
+
+이중 가장 `권장하는 방식이 생성자로 주입받는 방식`입니다. 
+(`@Autowired는 비권장방식`입니다.)
+즉, `생성자로 Bean 객체를 받도록 하면 @Autowired와 동일한 효과`를 볼 수 있다는 것입니다.
+
+그러면 위에서 생성자는 어디있을까요? 
+바로 `@AllArgsConstructor` 에서 해결해줍니다. 
+모든 필드를 인자값으로 하는 생성자를 Lombok의 @AllArgsConstructor이 대신 생성해 준 것입니다. 
+위 코드는 실제로는 아래와 같은 형태입니다.
+
+~~~
+...생략
+public saveOrUpdateUser(AccountRepository accountRepository) {
+	this.accountRepository = accountRepository;
+}
+~~~
+
+생성자를 직접 안쓰고 `Lombok 어노테이션을 사용한 이유`는 간단합니다. 
+`해당 클래스의 의존성 관계가 변경될때마다 생성자 코드를 계속해서 수정하는 번거로움을 해결`하기 위함입니다. 
+(Lombok 어노테이션이 있으면 해당 컨트롤러에 새로운 서비스를 추가하거나, 기존 컴포넌트를 제거하는 등이 발생해도 생성자 코드는 전혀 손대지 않아도 됩니다.)
+
+### AuthController 구현하기
 
 유저 리소스 용 REST API 
 
-|---|---|---|---|
+|:---|---|---|---|
 | ### URL | request | response | description |
 | /api/user | GET | 200, [{id: '1', name:''}, {id:'2', name:''}] | 모든 유저정보를 가져옵니다. |
 | /api/user | POST | 201, 생성된 user값 | 새로운 유저 생성 |
 | /api/user/{id} | GET | 200, {id:'1', name:''} | ID로 특정 user 조회 |
 | /api/user/{id} | PUT | 204, 업데이트된 값 | ID로 user 업데이트 |
 | /api/user/{id} | DELETE | 204, 내용 없음 | ID로 user 삭제 |
+
+> project.controller.AuthController
+
+~~~
+@RestController
+@AllArgsConstructor
+@RequestMapping("/api/user")
+public class AuthController {
+	
+	private UserServiceImpl userServiceImpl;
+	
+	// CREATE
+	@PostMapping("")
+	public ResponseEntity<?> insertUser(
+			@Valid @RequestBody AccountSaveRequestDto dto,
+			BindingResult result
+			) {
+		Account newAccount = userServiceImpl.saveOrUpdateUser(dto);
+		
+		return new ResponseEntity<Account>(newAccount, HttpStatus.CREATED);
+	}
+}
+~~~
+
+### Controller에서 사용할 DTO 클래스를 생성하기
+
+> project.dto.AccountSaveRequestDto
+
+~~~
+@Getter
+@Setter
+@NoArgsConstructor
+public class AccountSaveRequestDto {
+	private String userId;
+	private String username;
+	private String password;
+	
+	public Account toEntity() {
+		return Account.builder()
+				.userId(userId)
+				.username(username)
+				.password(password)
+				.build();
+	}
+}
+~~~
+
+해당 `DTO 클래스에서는 @Setter 어노테이션을 사용`했습니다.
+`Controller에서 @RequestBody로 외부에서 데이터`를 받는 경우엔 
+`기본생성자 + set메소드를 통해서만 값이 할당`됩니다. 
+그래서 이때만 setter를 허용합니다.
+
+여기서 `Entity 클래스와 거의 유사한 형태임에도 DTO 클래스를 추가로 생성`했는데요. 
+절대로 `테이블과 매핑되는 Entity 클래스를 Request/ Response 클래스로 사용해서는 안됩니다. `
+Entity 클래스는 가장 Core한 클래스라고 보시면 되는데요. 
+수많은 서비스 클래스나 비지니스 로직들이 `Entity 클래스를 기준으로 동작`합니다. 
+Entity 클래스가 변경되면 여러 클래스에 영향을 끼치게 되는 반면 `Request와 Response용 DTO는 View를 위한 클래스라 정말 자주 변경이 필요`합니다. 
+View Layer와 DB Layer를 철저하게 `역할 분리`를 하는게 좋습니다.
+실제로 Controller에서 결과값으로 여러 테이블을 조인해서 줘야할 경우가 빈번하기 때문에 Entity 클래스만으로 표현하기가 어려운 경우가 많습니다. 
+꼭꼭 `Entity 클래스와 Controller에서 쓸 DTO는 분리해서 사용`하시길 바랍니다.
+
+### Account 새로운 유저 생성 확인
+
+![controller](/images/new-accont.png)
+ 
+Postmen 확인 결과 값이 정상 전송 되는동시에 유저 정보가 return 되는것을 확인햇습니다.
+DB에 정상 저장됬는지 마지막 확인을 해보겠습니다.
+
+http://localhost:8080/h2-console/login.jsp
+![controller](/images/h2-console-test.png)
+![controller](/images/new-accont-db.png)
+
+정상적으로 h2 test db에 쌓인것을 확인할 수 있었습니다.
+
+### 생성시간/수정시간 자동화 - JPA Auditing
+
+보통 Entity에는 해당 데이터의 생성시간과 수정시간을 포함시킵니다. 
+`언제 만들어졌는지, 언제 수정`되었는지 등은 차후 `유지보수에 있어 굉장히 중요한 정보`이기 때문입니다. 
+그렇다보니 매번 DB에 insert하기전, update 하기전에 날짜 데이터를 등록/수정 하는 코드가 여기저기 들어가게 됩니다.
+
+~~~
+// 생성일 추가 코드 예제
+public void savePosts(){
+    ...
+    posts.setCreateDate(new LocalDate());
+    postsRepository.save(posts);
+    ...
+}
+~~~
+
+이런 단순하고 반복적인 코드가 `모든 테이블과 서비스 메소드에 포함되어야 한다고 생각하면` 어마어마하게 귀찮고 코드가 더러워지겠죠? 
+그래서 이 문제를 해결하기 위해 `JPA Auditing`를 사용하겠습니다.
+
+#### LocalDate 사용
+
+여기서부터는 날짜 타입을 사용합니다. 
+Java8 부터 LocalDate와 LocalDateTime이 등장했는데요. 
+그간 Java의 기본 날짜 타입인 Date의 문제점을 제대로 고친 타입이라 Java8일 경우 무조건 써야한다고 생각하시면 됩니다.
+
+#### BaseTime Entity 추상 클래스 생성
+
+> project.domain.BaseTime
+
+~~~
+@Getter
+@MappedSuperclass
+@EntityListeners(AuditingEntityListener.class)
+public abstract class BaseTime {
+	
+    @CreatedDate
+    private LocalDateTime createdDate;
+
+    @LastModifiedDate
+    private LocalDateTime modifiedDate;
+}
+~~~
+
+BaseTime Entity 클래스는 
+`모든 Entity들의 상위 클래스가 되어 Entity들의 createdDate, modifiedDate를 자동으로 관리하는 역할`입니다.
+
+- `@MappedSuperclass` - JPA Entity 클래스들이 BaseTimeEntity을 상속할 경우 필드들(createdDate, modifiedDate)도 컬럼으로 인식하도록 합니다.
+- `@EntityListeners(AuditingEntityListener.class)` - BaseTimeEntity클래스에 Auditing 기능을 포함시킵니다.
+- `@CreatedDate` - Entity가 생성되어 저장될 때 시간이 자동 저장됩니다.
+- `@LastModifiedDate` - 조회한 Entity의 값을 변경할 때 시간이 자동 저장됩니다.
+
+그리고 `Account 클래스가 BaseTime Entity를 상속`받도록 변경합니다.
+
+~~~
+public class Account extends BaseTime {
+... 생략
+}
+~~~
+
+마지막으로 `JPA Auditing 어노테이션들을 모두 활성화 시킬수 있도록` Application 클래스에 활성화 어노테이션 하나를 추가하겠습니다.
+
+> project.ProjectApplication
+
+~~~
+@EnableJpaAuditing // JPA Auditing 활성화
+@SpringBootApplication
+public class ProjectApplication {
+
+	public static void main(String[] args) {
+		SpringApplication.run(ProjectApplication.class, args);
+	}
+
+}
+~~~
+
+![controller](/images/new-account-datetime.png)
 
 # 공부에 도움이 많이 된 출처!
 
@@ -718,6 +988,8 @@ http://www.chidoo.me/index.php/2016/05/08/spring-data-jpa-for-short-memories/ - 
 https://cheese10yun.github.io/lombok/ - [실무에서 Lombok 사용법-getter, setter 무분별 사용 막자]
 
 https://www.feelteller.com/10 - [빌더]
+
+https://jojoldu.tistory.com/251 - [스프링부트로 웹 서비스 출시하기 - 2. SpringBoot & JPA로 간단 API 만들기, setter 무분별한 막기]
 
 싱글톤 패턴
 

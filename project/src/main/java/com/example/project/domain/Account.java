@@ -21,7 +21,7 @@ import lombok.NoArgsConstructor;
 @Getter
 @Entity
 @Table(name = "ACCOUNT")
-public class Account {
+public class Account extends BaseTime {
 	@Id
 	@GeneratedValue(strategy = GenerationType.AUTO)
 	@Column(name = "id")

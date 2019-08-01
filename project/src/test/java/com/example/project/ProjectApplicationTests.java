@@ -4,21 +4,15 @@ import static org.hamcrest.CoreMatchers.is;
 import static org.junit.Assert.assertThat;
 
 import java.util.List;
-import java.util.Map;
 
+import org.junit.After;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.security.core.authority.AuthorityUtils;
 import org.springframework.test.context.junit4.SpringRunner;
-import org.springframework.web.bind.annotation.GetMapping;
 
 import com.example.project.domain.Account;
-import com.example.project.domain.AccountContext;
-import com.example.project.enums.EnumMapper;
-import com.example.project.enums.EnumValue;
-import com.example.project.enums.UserRole;
 import com.example.project.repository.AccountRepository;
 
 @RunWith(SpringRunner.class)
@@ -26,36 +20,34 @@ import com.example.project.repository.AccountRepository;
 public class ProjectApplicationTests {
 
 	@Autowired
-	private AccountRepository repository;
+	private AccountRepository accountRepository;
 	
-	@Autowired
-	private AccountContext accountContext;
-	
-	@Autowired
-    private EnumMapper enumMapper;
+	@After
+	public void cleanup() {
+        /** 
+        	이후 테스트 코드에 영향을 끼치지 않기 위해 
+        	테스트 메소드가 끝날때 마다 respository 전체 비우는 코드
+        **/
+		accountRepository.deleteAll();
+	}
 
-    @GetMapping("/mapper")
-    public Map<String, List<EnumValue>> getMapper() {
-        return enumMapper.getAll();
-    }
-	
 	@Test
-	public void contextLoads() {
-//		Account account = new Account(
-//				"ID",
-//				"NAME",
-//				"PASSWORD",
-//				UserRole.USER
-//				);
+	public void userInsert() {
+		accountRepository.save(
+				Account.builder()
+				.userId("유저아이디")
+				.username("유저이름")
+				.password("비밀번호")
+				.build()
+				);
 		
-		accountContext.updateAccount("아이디", "비밀번호", );
+		// when
+		List<Account> userList = accountRepository.findAll();
 		
-		
-		repository.save(account);
-		Account saved = repository.findAll().get(0);
-		assertThat(saved.getUserId(), is("ID"));
-		assertThat(saved.getUsername(), is("NAME"));
-		assertThat(saved.getPassword(), is("PASSWORD"));
-		assertThat(saved.getUserRole(), is(UserRole.USER));
+		// then
+		Account account = userList.get(0);
+		assertThat(account.getUserId(), is("유저아이디"));
+		assertThat(account.getUsername(), is("유저이름"));
+		assertThat(account.getPassword(), is("비밀번호"));
 	}
 }
