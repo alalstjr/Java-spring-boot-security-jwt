@@ -5,27 +5,6 @@
 REST API를 디자인 할 때는 매우 중요한 보안을 탄탄하게 잡아줘야 합니다. 
 마침 Spring 기반의 애플리케이션 `Spring Security` 라는 아주 훌륭한 `인증 및 권한` 부여 솔루션이 존재합니다.
 
-## Spring Security(스프링 시큐리티) 란 무엇인가?
-
-스프링 시큐리티 레퍼런스에서는 자바 EE 기반의 엔터프라이즈 소프트웨어 애플리케이션을 위한 포괄적인 보안 서비스들을 제공하고 
-`오픈 플랫폼`이면서 자신만의 인증 매커니즘을 간단하게 만들 수 있습니다.
-
-스프링 시큐리티를 이해하기 위해서는 스프링 시큐리티가 `애플리케이션 보안을 구성하는 두가지 영역`에 대해서 알아야 합니다. 
-
-바로 `인증(Authentication)과 권한(Authorization)` 이라는 것입니다.
-
-- 인증 : 애플리케이션의 작업을 수행할 수 있는 주체(사용자)라고 주장할 수 있는 것
-- 권한 : 권한은 인증된 주체가 애플리케이션의 동작을 수행할 수 있도록 허락되있는지를 결정하는 것
-
-권한 승인이 필요한 부분으로 접근하려면 인증 과정을 통해 주체가 증명 되어야만 한다는 것입니다.
-
-## Spring Security 동작 방식
-
-- 1. 클라이언트가 Resource에 URL을 통해 요청을 보낸다.
-- 2. `DelegatingFilterProxy`는 요청을 Intercept! 가로채서 Spring Security빈으로 보낸다.
-- 3. Spring Security빈은 인증 및 권한을 확인한다.
-- 4. 권한이 잘 부여되어 있다면 리소스에 접근을 허용하고 그렇지 않다면 거부한다.
-
 # JWT (JSON Web Token) 이란?
 
 JSON Web Token (JWT) 은 웹표준 [(RFC 7519)](https://tools.ietf.org/html/rfc7519) 으로서 
@@ -968,6 +947,209 @@ public class ProjectApplication {
 
 ![controller](/images/new-account-datetime.png)
 
+# Spring Security(스프링 시큐리티) 란 무엇인가?
+
+스프링 시큐리티 레퍼런스에서는 자바 EE 기반의 엔터프라이즈 소프트웨어 애플리케이션을 위한 포괄적인 보안 서비스들을 제공하고 
+`오픈 플랫폼`이면서 자신만의 인증 매커니즘을 간단하게 만들 수 있습니다.
+
+스프링 시큐리티를 이해하기 위해서는 스프링 시큐리티가 `애플리케이션 보안을 구성하는 두가지 영역`에 대해서 알아야 합니다. 
+
+바로 `인증(Authentication)과 권한(Authorization)` 이라는 것입니다.
+
+- 인증 : 애플리케이션의 작업을 수행할 수 있는 주체(사용자)라고 주장할 수 있는 것
+- 권한 : 권한은 인증된 주체가 애플리케이션의 동작을 수행할 수 있도록 허락되있는지를 결정하는 것
+
+권한 승인이 필요한 부분으로 접근하려면 인증 과정을 통해 주체가 증명 되어야만 한다는 것입니다.
+
+## Spring Security 동작 방식
+
+간단한 그림 표현
+![controller](/images/springsecurity-progress.png)
+
+- 1. 클라이언트가 Resource에 URL을 통해 요청을 보낸다.
+- 2. `DelegatingFilterProxy`는 요청을 Intercept! 가로채서 Spring Security빈으로 보낸다.
+- 3. Spring Security빈은 인증 및 권한을 확인한다.
+- 4. 권한이 잘 부여되어 있다면 리소스에 접근을 허용하고 그렇지 않다면 거부한다.
+
+## DelegatingFilterProxy VS DispatcherServlet
+
+프링을 사용해본 분이라면, DelegatingFilterProxy가 DispatcherServlet과 동작방식이 매우 비슷한 것을 알 수 있다. 
+둘다 
+https://ko.wikipedia.org/wiki/%ED%8D%BC%EC%82%AC%EB%93%9C_%ED%8C%A8%ED%84%B4 - [Facade]
+로서, `사용자의 요청을 가장먼저 받아서 요청을 처리할 곳`으로 전가한다.
+그렇다면 사용자의 요청을 누가 먼저처리할까? 누가 우선순위가 더 높을까?
+
+우선 순위 `DelegatingFilterProxy >>> DispatcherServlet`
+Filter 가 먼저 동작하고 DispatcherServlet 이 다음으로 동작한다. 
+인증되지 않은 사용자는 Filter에서 먼저 걸려저셔 <b>Facade Controller에게 조차 전달되지 않는다.</b>
+
+## DelegatingFilterProxy 등록하기 ==> Request Intercept & Filter
+
+스프링의 다른 기능들처럼, 빈만 등록하면 절반은 끝난다. 
+빈을 ApplicationContext에 등록하기만 하면 스프링이 자동으로 생성해주고 요청을 가로채서 DelegatingFilterProxy로 전달해준다. 
+그 다음에는 사용하기만 하면 된다. 
+
+## Java Configuration
+
+스프링 시큐리티 레퍼런스에서는 자바 기반의 설정으로 설명하고 있습니다. 그 이유는 무엇일까요?
+
+스프링 프레임워크 3.1에서부터 어노테이션을 통한 자바 설정을 지원하기 때문에 스프링 시큐리티 3.2부터는 XML로 설정하지 않고도 간단하게 설정할 수 있도록 지원하기 때문입니다.
+
+원래 XML 기반의 설정에서는 web.xml에 org.springframework.web.filter.DelegatingFilterProxy라는 springSecurityFilterChain을 등록하는 것으로 시작합니다만, 자바 기반의 설정에서는 WebSecurityConfigurerAdapter를 상속받은 클래스에 @EnableWebSecurity 어노테이션을 명시하는 것만으로도 springSecurityFilterChain가 자동으로 포함되어집니다.
+
+@EnableWebSecurity 
+public class WebSecurityConfig extends WebSecurityConfigurerAdapter { 
+
+}
+
+## package 생성 
+
+- dtos - (각 계층간의 데이터 교환을 위해 사용되는 개체 모음)
+- filters - (req를 가로체서 사용자의 인증을 확인하는 클레스 모음)
+- hendlers - (인증 후 결과를 처리해주는 핸들러 클래스 모음)
+- jwt - (인증이 완료되면 JWT Token을 발행해주는 클래스 모음)
+- providers (실제 인증을 하는 클래스  UserDetails 객체를 전달 받은 이후 실제 사용자의 입력정보와 UserDetails 객체를 가지고 인증을 시도한다.)
+- tokens (인증 전 토큰확인과 인증 후 토큰 확인을 해주는 클래스 모음)
+    - PreAuthorizationToken (인증 전 토큰 확인)
+    - PostAuthorizationToken (인증 후 토큰 확인)
+
+## 인증 진행 순서 (로그인)
+
+- 1. SecurityConfig 
+- 2. FormLoginFilter (attemptAuthentication 인증 시도)
+- 3. FormLoginAuthenticationProvider
+- 4. PreAuthorizationToken
+- 5. AccountContext
+- 6. PostAuthorizationToken
+- 7. successfulAuthentication
+- 8. FormLoginAuthenticationSuccessHandler
+- 9. JwtFactory 
+
+### 1. SecurityConfig 
+
+https://docs.spring.io/spring-security/site/docs/current/api/org/springframework/security/config/annotation/web/configuration/WebSecurityConfigurerAdapter.html - [WebSecurityConfigurerAdapter DOCS]
+
+configure 메소드는 `인증을 담당할 프로바이더 구현체를 설정, 필터 등록을 하는 메소드`이다.
+WebSecurityConfigurerAdapter 추상 클래스를 상속 받는다.
+`스프링 자동 보안 구성을 건너뛰고 사용자정의 보안구성`하기 위해서 상속받는 클래스
+
+반대되는 전역을 보안하는 상속 클래스 `GlobalAuthenticationConfigurerAdapter` 존재합니다.
+
+- 가장 먼저 인증이 필요한 서버에 `사용자가 접속시 가장 처음 Filter를 연결`해주는 역할
+
+### 2. FormLoginFilter
+
+https://docs.spring.io/spring-security/site/docs/4.2.12.RELEASE/apidocs/org/springframework/security/web/authentication/AbstractAuthenticationProcessingFilter.html - [AbstractAuthenticationProcessingFilter DOCS]
+
+`AbstractAuthenticationProcessingFilter 추상 클래스` : 웹 기반 인증 요청에 사용. 폼 POST, SSO 정보 또는 기타 사용자가 제공한 `크리덴셜(크리덴셜은 사용자가 본인을 증명하는 수단)`을 포함한 요청을 처리.
+
+브라우저 기반 HTTP 기반 인증 요청 에서 사용되는 컴포넌트로 POST 폼 데이터를 포함하는 요청을 처리한다. 
+`인증 실패와 인증 성공 관련 이벤트를 관련 핸들러 메서드`를 가지고 있습니다.
+사용자 비밀번호를 다른 필터로 전달하기 위해서 `Authentication 객체를 생성하고 일부 프로퍼티를 설정`한다.
+(해당 추상클래스 설명 구글번역)
+
+간단하게 설명하자면 인증요청에 해당하는 URL을 감지하면 최초로 `AbstractAuthenticationProcessingFilter 를 구현한 클래스(FormLoginFilter)가 요청을 가로챈 후 Authentication 객체를 생성`한다.
+
+AbstractAuthenticationProcessingFilter 클래스의 `doFilter 메서드로 인해서 가장 처음 인증 attemptAuthentication 메서드를 실행`합니다.
+
+우선 인증 관련 메서드 핸들러 를 구현하겠습니다.
+
+#### Hendlers 인증 성공(인증객체 생성)
+
+> project.security.hendlers.FormLoginAuthenticationSuccessHandler
+
+~~~
+public class FormLoginAuthenticationSuccessHandler extends AuthenticationSuccessHandler {
+
+	@Override
+	public void onAuthenticationSuccess(
+			HttpServletRequest request, 
+			HttpServletResponse response,
+			Authentication authentication
+			) throws IOException, ServletException {
+		// Token 값을 정형화된 DTO를 만들어서 res 으로 내려주는 역활을 수행한다.
+		// 이후 JWT Token 제작소가 만들어지면 추가합니다.
+	}
+}
+~~~
+
+AuthenticationSuccessHandler 구현체에서는 `로그인을 성공`했을때 호출(인증 객체가 생성되어진 후)
+
+onAuthenticationSuccess 메서드를 @Override 해줍니다.
+`Token 값을 정형화된 DTO를 만들어서 res 으로 내려주는 역할`을 수행합니다.
+
+#### Hendlers 인증 실패
+
+> project.security.hendlers.FormLoginAuthenticationFailuerHandler
+
+~~~
+public class FormLoginAuthenticationFailuerHandler extends AuthenticationFailureHandler {
+
+	private static final Logger log = LoggerFactory.getLogger(FormLoginAuthenticationFailuerHandler.class);
+
+	@Override
+	public void onAuthenticationFailure(
+			HttpServletRequest request, 
+			HttpServletResponse response,
+			AuthenticationException exception
+			) throws IOException, ServletException {
+		log.error(e.getMessage());
+	}
+}
+~~~
+
+AuthenticationFailureHandler 구현체에서는 `로그인을 실패`했을때 호출
+
+onAuthenticationFailure 메서드를 @Override 해줍니다.
+`로그인 접근의 실패 정보`를 알려주도록 해줍니다.
+
+#### 인증 필터
+
+인증 성공/실패 핸들러를 만들었으니 이제 필터 부분에서 인증과정만 추가해주면 됩니다.
+
+> project.security.filters.FormLoginFilter
+
+~~~
+public class FormLoginFilter extends AbstractAuthenticationProcessingFilter {
+
+	@Override
+	public Authentication attemptAuthentication(
+			HttpServletRequest request, 
+			HttpServletResponse response
+			)
+			throws AuthenticationException, IOException, ServletException {
+		return null;
+	}
+}
+~~~
+
+attemptAuthentication 메서드를 @Override 해줍니다.
+
+AbstractAuthenticationProcessingFilter 클래스의 doFilter 메서드로 인해서 
+`가장 처음 인증 attemptAuthentication 메서드를 실행`합니다.
+
+만약 attemptAuthentication 메서드에서 `인증이 성공한다면 doFilter 메서드` 에서
+~~~
+// Authentication success
+if (continueChainBeforeSuccessfulAuthentication) {
+	chain.doFilter(request, response);
+}
+
+successfulAuthentication(request, response, chain, authResult);
+~~~
+`successfulAuthentication 으로 메서드를 실행`시키도록 해줍니다. `(인증 실패도 동일)`
+
+사용자입력 `ID and Password 를 req 로 받은 값을 ObjectMapper 객체로 JSON 으로 변환`하여 FormLoginDto형식으로 저장합니다.
+(결과 `FormLoginDto(userid=asd, password=asd) 식으로 변환`됩니다.)
+
+사용자입력값이 존재하는지 비교하기 위해서 DTO 를 `인증 '전' Token 객체에 넣어 PreAuthorizationToken 을 생성`합니다.
+
+위 사용자의 값을 가지고 attemptAuthentication는 인증을 시도합니다.
+`인증 시도는 FormLoginAuthenticationProvider` 에서 하게됩니다.
+
+PreAuthorizationToken 해당 객체에 맞는 Provider를 
+`getAuthenticationManager 해당 메서드가 자동으로 찾아서 연결해` 준다.
+
 # 공부에 도움이 많이 된 출처!
 
 https://velopert.com/2389 - [JSON Web Token 이 뭘까?]
@@ -990,6 +1172,8 @@ https://cheese10yun.github.io/lombok/ - [실무에서 Lombok 사용법-getter, s
 https://www.feelteller.com/10 - [빌더]
 
 https://jojoldu.tistory.com/251 - [스프링부트로 웹 서비스 출시하기 - 2. SpringBoot & JPA로 간단 API 만들기, setter 무분별한 막기]
+
+https://frontierdev.tistory.com/89 - [WebSecurityConfigurerAdapter 란 무엇인가?]
 
 싱글톤 패턴
 
