@@ -264,7 +264,7 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
 @Getter
 @Entity
 @Table(name = "ACCOUNT")
-public class Account {
+public class Account extends BaseTime {
 	@Id
 	@GeneratedValue(strategy = GenerationType.AUTO)
 	@Column(name = "id")
@@ -284,13 +284,14 @@ public class Account {
 	
 	@Column(name = "ACCOUN_ROLE", nullable = false)
 	@Enumerated(value = EnumType.STRING)
-	public UserRole userRole = UserRole.USER; 
+	public UserRole userRole; 
 	
 	@Builder
-	public Account(String userId, String username, String password) {
+	public Account(String userId, String username, String password, UserRole userRole) {
 		this.userId = userId;
 		this.username = username;
 		this.password = password;
+		this.userRole = userRole;
 	}
 }
 ~~~
@@ -395,7 +396,7 @@ public enum UserRole {
 }
 ~~~
 
-유저의 권환을 열거향 상수 Enum 으로 정의하여 값을 주도록 하겠습니다.
+유저의 권한을 열거향 상수 Enum 으로 정의하여 값을 주도록 하겠습니다.
 
 Enum을 사용하면서 우리가 얻을 수 있는 이점
 
@@ -836,12 +837,14 @@ public class AccountSaveRequestDto {
 	private String userId;
 	private String username;
 	private String password;
+	private UserRole userRole;
 	
 	public Account toEntity() {
 		return Account.builder()
 				.userId(userId)
 				.username(username)
 				.password(password)
+				.userRole(userRole)
 				.build();
 	}
 }
@@ -1021,13 +1024,12 @@ public class WebSecurityConfig extends WebSecurityConfigurerAdapter {
 
 - 1. SecurityConfig 
 - 2. FormLoginFilter (attemptAuthentication 인증 시도)
-- 3. FormLoginAuthenticationProvider
-- 4. PreAuthorizationToken
-- 5. AccountContext
-- 6. PostAuthorizationToken
-- 7. successfulAuthentication
-- 8. FormLoginAuthenticationSuccessHandler
-- 9. JwtFactory 
+- 3. PreAuthorizationToken
+- 4. FormLoginAuthenticationProvider
+- 5. PostAuthorizationToken
+- 6. successfulAuthentication
+- 7. FormLoginAuthenticationSuccessHandler
+- 8. JwtFactory 
 
 ### 1. SecurityConfig 
 
@@ -1056,7 +1058,7 @@ https://docs.spring.io/spring-security/site/docs/4.2.12.RELEASE/apidocs/org/spri
 
 AbstractAuthenticationProcessingFilter 클래스의 `doFilter 메서드로 인해서 가장 처음 인증 attemptAuthentication 메서드를 실행`합니다.
 
-사용자 권환을 확인하는 인증 필터를 구현하겠습니다.
+사용자 권한을 확인하는 인증 필터를 구현하겠습니다.
 
 #### 로그인한 사용자의 DTO
 
@@ -1162,7 +1164,7 @@ PreAuthorizationToken 해당 객체에 맞는 Provider를
 
 4. 인증 성공 or 실패 메서드 구현합니다.
 
-#### 인증전 Token PreAuthorizationToken 생성
+### 3. 인증 전 Token PreAuthorizationToken 생성
 
 > project.security.tokens.PreAuthorizationToken
 
@@ -1189,37 +1191,236 @@ public class PreAuthorizationToken extends UsernamePasswordAuthenticationToken {
 
 UsernamePasswordAuthenticationToken 사용자 이름 비밀번호 인증 토큰 클래스를 상속받습니다.
 
-로그인한 사용자의 권환을 확인하기 위해서 Pre Token 을 생성완료했으니 Provider 로 보내도록 하겠습니다.
+로그인한 사용자의 권한을 확인하기 위해서 Pre Token 을 생성완료했으니 Provider 로 보내도록 하겠습니다.
 
-#### FormLoginAuthenticationProvider
+### 4. FormLoginAuthenticationProvider
 
-로그인한 사용자의 인증 권환을 검사합니다.
+로그인한 사용자의 인증 권한을 검사합니다.
 
+~~~
+@AllArgsConstructor
+public class FormLoginAuthenticationProvider implements AuthenticationProvider {
 
+	private PasswordEncoder passwordEncoder;
+	private AccountRepository accountRepository;
+
+	// 1.
+	@Override
+	public Authentication authenticate(Authentication authentication) throws AuthenticationException {
+		// 2.
+		PreAuthorizationToken token = (PreAuthorizationToken)authentication;
+		
+		String username = token.getUsername();
+		String password = token.getUserPassword();
+		
+		// 3.
+		Account account = accountRepository
+				.findByUserId(username)
+				.orElseThrow(() -> new NoSuchElementException("정보에 맞는 계정이 없습니다."));
+		
+		// 4.
+		if(isCorrectPassword(password, account)) {
+			return PostAuthorizationToken.getTokenFromAccountContext(account);
+		}
+
+		// 이곳까지 통과하지 못하면 잘못된 요청으로 접근하지 못한것 그러므로 throw 해줘야 한다.
+		throw new NoSuchElementException("인증 정보가 정확하지 않습니다.");
+	}
+
+	// 5.
+	@Override
+	public boolean supports(Class<?> authentication) {
+		return PreAuthorizationToken.class.isAssignableFrom(authentication);
+	}
+
+	// 4.
+	private boolean isCorrectPassword(String password, Account account) {
+		// 비교대상이 앞에와야 한다.
+		return passwordEncoder.matches(password, account.getPassword());
+	}
+}
+~~~
+
+https://docs.spring.io/spring-security/site/docs/4.2.12.RELEASE/apidocs/org/springframework/security/authentication/AuthenticationProvider.html - [AuthenticationProvider DOCS]
+
+AuthenticationProvider 인터페이스를 상속 받습니다. 특정 Authentication구현을 처리 할 수있는 클래스를 나타냅니다.
+
+`AuthenticationProvider` 인터페이스는 화면에서 입력한 `로그인 정보와 DB에서 가져온 사용자의 정보를 비교해주는 인터페이스`이다. 해당 인터페이스에 오버라이드되는 authenticate() 메서드는 화면에서 사용자가 입력한 `로그인 정보를 담고 있는 Authentication 객체를 가지고 있다.` AuthenticationProvider 인터페이스는 인증에 성공하면 인증된 Authentication 객체를 생성하여 리턴하기 때문에 비밀번호, 계정 활성화, 잠금 모든 부분에서 확인이 되었다면 리턴해주도록 하자.
+
+1. 로그인한 사용자와 DB 사용자를 비교하는 메서드 authenticate() @Override 해줍니다. 
+
+2. 기본적으로 이전에 받은 로그인 정보를 담고 있는 Authentication 객체 PreToken 값을 가지고 있습니다.
+해당 PreToken 에서 로그인한 유저의 정보를 변수에 담습니다.
+
+3. `로그인한 유저가 DB에 존재하는지` accountRepository를 통해서 확인합니다.
+
+4. 로그인한 유저와 DB에 존재하는 유저의 `Password 가 동일한지 조회`하는 메서드입니다. `*무조건 비교 대상이 앞에 와야합니다.`
+
+로그인한 유저가 DB에 존재한다면 PostAuthorizationToken(권한이 부여된 토큰) 객체를 생성하여 return 합니다.
+
+5. AuthenticationProvider 인터페이스가 지정된 Authentication 객체를 지원하는 경우에 true를 리턴한다.
+
+form action 진행 시 해당 클래스의 supports() > authenticate() 순으로 인증 절차 진행합니다.
+
+사용자 인증이 완료되면 사용자에게 권한을 부여한 토큰을 생성하여 return 해줘야 합니다.
+PostAuthorizationToken 클래스를 생성합니다.
+
+### 5. 인증 후 Token PostAuthorizationToken 생성
+
+> project.security.tokens.PostAuthorizationToken
+
+~~~
+public class PostAuthorizationToken extends UsernamePasswordAuthenticationToken {
+	
+	// 2.
+	private static EnumMapper enumMapper;
+
+	// 1.
+	private PostAuthorizationToken(
+			Object principal, 
+			Object credentials,
+			Collection<? extends GrantedAuthority> authorities
+			) {
+		super(principal, credentials, authorities);
+	}
+
+	// 2.
+	public static PostAuthorizationToken getTokenFromAccountContext(Account account) {
+		
+		return new PostAuthorizationToken(
+			account, 
+			account.getPassword(), 
+			enumMapper.userRoleList(account.getUserRole())
+		);
+	}
+}
+~~~
+
+1. Object principal - 주도자, 주역
+`사용자 본인을 의미` 간단하게 유저 아이디 생각하면 될꺼같다. (쭌피셜)
+
+Object credentials - 자격 인증서, 자격증
+이름 그대로 자격이다. 
+Principal에서 사용자 본인을 의미한다면 `Credentials 은 그에 따른 자격을 증명하고자 할 때 사용`된다.
+Principal과 마찬가지로 구현에 따라 어떠한 정보가 들어갈지 달라지지만 대체적으로 암호화된 정보를 저장하며, 보안에 신경을 많이 써야 되는 정보이다.
+
+Collection<? extends GrantedAuthority> authorities - 권한을 List형태로 받습니다.
+`사용자의 지정한 권한 범위를 기술하기 위해 추상화된 클래스` (권한이 Role만 있는것이 아니기에 List 형태로 받습니다. 여러 가지 조건으로 제한이 가능하다는 것입니다.)
+
+2. 유저의 권한 정보를 생성자에 담아야 합니다 만 `GrantedAuthority 형태의 List 형식으로 값을 받아 처리`하기 때문에 전에 만들어 놨던 UserRole `EnumMapper 를 활용`하여 Role 값을 List로 변환하도록 하였습니다.
+
+### 6. successfulAuthentication
+
+Provider 에서 인증이 끝난 후 다시 filter로 돌아와서 위 127번째 줄 doFilter 의 메서드로 인해서 인증이 성공 하였으니 `successfulAuthentication(request, response, chain, authResult); 메서드로 이동하여 실행`합니다.
 
 #### Hendlers 인증 성공(인증객체 생성)
 
 > project.security.hendlers.FormLoginAuthenticationSuccessHandler
 
 ~~~
-public class FormLoginAuthenticationSuccessHandler extends AuthenticationSuccessHandler {
+@Component
+@AllArgsConstructor
+public class FormLoginAuthenticationSuccessHandler implements AuthenticationSuccessHandler {
 
+	// 2.
+	private JwtFactory factory;
+	
+	private ObjectMapper objectMapper;
+	
+	// 1.
 	@Override
 	public void onAuthenticationSuccess(
-			HttpServletRequest request, 
-			HttpServletResponse response,
-			Authentication authentication
+			HttpServletRequest req, 
+			HttpServletResponse res,
+			Authentication auth
 			) throws IOException, ServletException {
-		// Token 값을 정형화된 DTO를 만들어서 res 으로 내려주는 역활을 수행한다.
-		// 이후 JWT Token 제작소가 만들어지면 추가합니다.
+
+		PostAuthorizationToken token = (PostAuthorizationToken) auth;
+		Account context = (Account) token.getPrincipal();
+		
+		// 2.
+		String tokenString = factory.generateToken(context);
+		
+		String username = token.getAccountContext().getAccount().getUsername();
+		String userId = token.getAccountContext().getAccount().getUserId();
+		
+		processRespone(res, writeDto(tokenString, username, userId));
 	}
+	 
+	private TokenDto writeDto(String token, String username, String userId) {
+		return new TokenDto(token, username, userId);
+	}
+	
+	private void processRespone(
+			HttpServletResponse res,
+			TokenDto dto
+			) throws JsonProcessingException, IOException {
+		res.setContentType(MediaType.APPLICATION_JSON_UTF8_VALUE);
+		res.setStatus(HttpStatus.OK.value());
+		res.getWriter().write(objectMapper.writeValueAsString(dto));
+	}
+
 }
 ~~~
 
 AuthenticationSuccessHandler 구현체에서는 `로그인을 성공`했을때 호출(인증 객체가 생성되어진 후)
 
-onAuthenticationSuccess 메서드를 @Override 해줍니다.
-`Token 값을 정형화된 DTO를 만들어서 res 으로 내려주는 역할`을 수행합니다.
+
+1. onAuthenticationSuccess 메서드를 @Override 해줍니다.
+`Token 값을 정형화된 DTO를 만들어서 res 으로 내려주는 역할`을 수행합니다. 인증결과 객체 auth 를 PostAuthorizationToken객체 변수에 담아줍니다.
+
+2. PostAuthorizationToken객체에 담아줄 JWT Token 을 생성해야 합니다.
+
+#### JWT Token 생성
+
+> pom.xml jwt dependency 를 추가해줍니다.
+
+~~~
+<dependency>
+	<groupId>com.auth0</groupId>
+	<artifactId>java-jwt</artifactId>
+	<version>3.3.0</version>
+</dependency>
+~~~
+
+> project.security.jwts.JwtFactory
+
+~~~
+@Component
+public class JwtFactory {
+
+	private static final Logger log = LoggerFactory.getLogger(JwtFactory.class);
+	
+	// 2.
+	private static String signingKey = "jwttest";
+	
+	// 1.
+	public String generateToken(Account account) {
+		String token = null;
+		try {
+			token = JWT.create()
+					.withIssuer("jjunpro")
+					.withClaim("USERNAME", account.getUserId())
+					.withClaim("USER_ROLE", account.getUserRole())
+					.withClaim("EXP", new Date(System.currentTimeMillis() + 864000000))
+					.sign(generateAlgorithm());
+		} catch(Exception e) {
+			log.error(e.getMessage());
+		}
+		
+		return token;
+	}
+	
+	// 2.
+	private Algorithm generateAlgorithm() throws UnsupportedEncodingException {
+		return Algorithm.HMAC256(signingKey);
+	}
+}
+~~~
+
+1. JWT Token 을 만들어주는 메서드 generateToken() JWT 값으로 유저 아이디, 유저 권한, 토큰 유효시간 을 담았습니다.
+
+2. signature 서명 값을 선언해주고 Algorithm generateAlgorithm() 암호화 메서드로 암호화 후 값을 넣어줍니다.
 
 #### Hendlers 인증 실패
 
@@ -1270,6 +1471,11 @@ https://www.feelteller.com/10 - [빌더]
 https://jojoldu.tistory.com/251 - [스프링부트로 웹 서비스 출시하기 - 2. SpringBoot & JPA로 간단 API 만들기, setter 무분별한 막기]
 
 https://frontierdev.tistory.com/89 - [WebSecurityConfigurerAdapter 란 무엇인가?]
+
+https://to-dy.tistory.com/87 - [AuthenticationProvider 란?]
+
+https://post.naver.com/viewer/postView.nhn?volumeNo=10142629&memberNo=559061 - [static 전역 변수]
+https://12bme.tistory.com/94 - [static 변수 잘 사용하자]
 
 싱글톤 패턴
 

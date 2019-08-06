@@ -41,12 +41,13 @@ public class Account extends BaseTime {
 	
 	@Column(name = "ACCOUN_ROLE", nullable = false)
 	@Enumerated(value = EnumType.STRING)
-	public UserRole userRole = UserRole.USER; 
+	public UserRole userRole; 
 	
 	@Builder
-	public Account(String userId, String username, String password) {
+	public Account(String userId, String username, String password, UserRole userRole) {
 		this.userId = userId;
 		this.username = username;
 		this.password = password;
+		this.userRole = userRole;
 	}
 }

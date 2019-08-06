@@ -9,6 +9,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 
 import com.example.project.domain.Account;
 import com.example.project.repository.AccountRepository;
+import com.example.project.security.tokens.PostAuthorizationToken;
 import com.example.project.security.tokens.PreAuthorizationToken;
 
 import lombok.AllArgsConstructor;
@@ -19,7 +20,7 @@ public class FormLoginAuthenticationProvider implements AuthenticationProvider {
 	private PasswordEncoder passwordEncoder;
 	
 	private AccountRepository accountRepository;
-
+	
 	@Override
 	public Authentication authenticate(Authentication authentication) throws AuthenticationException {
 		PreAuthorizationToken token = (PreAuthorizationToken)authentication;
@@ -32,7 +33,7 @@ public class FormLoginAuthenticationProvider implements AuthenticationProvider {
 				.orElseThrow(() -> new NoSuchElementException("정보에 맞는 계정이 없습니다."));
 		
 		if(isCorrectPassword(password, account)) {
-			return PostAuthorizationToken.getTokenFromAccountContext(AccountContext.fromAccountModel(account));
+			return PostAuthorizationToken.getTokenFromAccountContext(account);
 		}
 
 		// 이곳까지 통과하지 못하면 잘못된 요청으로 접근하지 못한것 그러므로 throw 해줘야 한다.
@@ -41,7 +42,7 @@ public class FormLoginAuthenticationProvider implements AuthenticationProvider {
 
 	@Override
 	public boolean supports(Class<?> authentication) {
-		return PreAuthorizationToken.class.isAssignableFrom(aClass);
+		return PreAuthorizationToken.class.isAssignableFrom(authentication);
 	}
 
 	private boolean isCorrectPassword(String password, Account account) {
