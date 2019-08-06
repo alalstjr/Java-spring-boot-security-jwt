@@ -626,7 +626,9 @@ Mapper 확인을 위해서 Controller 추가도 하겠습니다.
 
 ~~~
 public interface AccountRepository extends JpaRepository<Account, Long>{
-
+	
+	// 1
+	Optional<Account> findByUserId(String userId);
 }
 ~~~
 
@@ -635,6 +637,8 @@ public interface AccountRepository extends JpaRepository<Account, Long>{
 단순히 인터페이스를 생성후, 
 `JpaRepository<Entity클래스, PK타입>를 상속`하면 기본적인 `CRUD 메소드가 자동생성` 됩니다. 
 특별히 @Repository를 추가할 필요도 없습니다.
+
+1. 유저 Id를 찾는 쿼리문 유저가 로그인 할때 해당 유저가 존재하는지 확인할때 사용
 
 ### repository save & find Test
 
@@ -1052,7 +1056,146 @@ https://docs.spring.io/spring-security/site/docs/4.2.12.RELEASE/apidocs/org/spri
 
 AbstractAuthenticationProcessingFilter 클래스의 `doFilter 메서드로 인해서 가장 처음 인증 attemptAuthentication 메서드를 실행`합니다.
 
-우선 인증 관련 메서드 핸들러 를 구현하겠습니다.
+사용자 권환을 확인하는 인증 필터를 구현하겠습니다.
+
+#### 로그인한 사용자의 DTO
+
+먼저 로그인한 사용자의 정보를 담은 DTO 를 생성합니다.
+
+#### 인증 필터
+
+> project.security.filters.FormLoginFilter
+
+~~~
+public class FormLoginFilter extends AbstractAuthenticationProcessingFilter {
+
+	// 3.
+	private AuthenticationSuccessHandler authenticationSuccessHandler;
+	private AuthenticationFailureHandler authenticationFailureHandler;
+
+	// 1.
+	protected FormLoginFilter(String defaultFilterProcessesUrl) {
+		super(defaultFilterProcessesUrl);
+	}
+
+	// 2.
+	@Override
+	public Authentication attemptAuthentication(
+			HttpServletRequest req, 
+			HttpServletResponse res
+			)
+			throws AuthenticationException, IOException, ServletException {
+
+		// JSON 으로 변환
+		FormLoginDto dto = new ObjectMapper()
+				.readValue( req.getReader(), FormLoginDto.class );
+		
+		// 사용자입력값이 존재하는지 비교
+		PreAuthorizationToken token = new PreAuthorizationToken(dto);
+		
+		
+		// PreAuthorizationToken 해당 객체에 맞는 Provider를 
+		// getAuthenticationManager 해당 메서드가 자동으로 찾아서 연결해 준다.
+		
+		return super
+				.getAuthenticationManager()
+				.authenticate(token);
+	}
+
+	// 4.
+	@Override
+	protected void successfulAuthentication(
+			HttpServletRequest req, 
+			HttpServletResponse res, 
+			FilterChain chain,
+			Authentication authResult
+			) throws IOException, ServletException {
+		this
+		.authenticationSuccessHandler
+		.onAuthenticationSuccess(req, res, authResult);
+	}
+	// 4.
+	@Override
+	protected void unsuccessfulAuthentication(
+			HttpServletRequest req, 
+			HttpServletResponse res,
+			AuthenticationException failed
+			) throws IOException, ServletException {
+		this
+		.authenticationFailureHandler
+		.onAuthenticationFailure(req, res, failed);
+	}
+}
+~~~
+
+1. defaultFilterProcessesUrl- filterProcessesUrl 의 기본생성자 생성
+그리고 성공 실패 핸들러를 담은 생성자 두개 만들어 줍니다.
+
+2. 그리고 attemptAuthentication 메서드를 @Override 해줍니다.
+
+AbstractAuthenticationProcessingFilter 클래스의 doFilter 메서드로 인해서 
+`가장 처음 인증 attemptAuthentication 메서드를 실행`합니다.
+
+만약 attemptAuthentication 메서드에서 `인증이 성공한다면 doFilter 메서드` 에서
+~~~
+// Authentication success
+if (continueChainBeforeSuccessfulAuthentication) {
+	chain.doFilter(request, response);
+}
+
+successfulAuthentication(request, response, chain, authResult);
+~~~
+`successfulAuthentication 으로 메서드를 실행`시키도록 해줍니다. `(인증 실패도 동일)`
+
+사용자입력 `ID and Password 를 req 로 받은 값을 ObjectMapper 객체로 JSON 으로 변환`하여 FormLoginDto형식으로 저장합니다.
+(결과 `FormLoginDto(userid=asd, password=asd) 식으로 변환`됩니다.)
+
+사용자입력값이 존재하는지 비교하기 위해서 DTO 를 `인증 '전' Token 객체에 넣어 PreAuthorizationToken 을 생성`합니다.
+
+위 사용자의 값을 가지고 attemptAuthentication는 인증을 시도합니다.
+`인증 시도는 FormLoginAuthenticationProvider` 에서 하게됩니다.
+
+PreAuthorizationToken 해당 객체에 맞는 Provider를 
+`getAuthenticationManager 해당 메서드가 자동으로 찾아서 연결해` 준다.
+
+3. 인증 성공 or 실패 메서드 구현하기 위해서 필요한 성공실패 인터페이스를 불러옵니다.
+
+4. 인증 성공 or 실패 메서드 구현합니다.
+
+#### 인증전 Token PreAuthorizationToken 생성
+
+> project.security.tokens.PreAuthorizationToken
+
+~~~
+public class PreAuthorizationToken extends UsernamePasswordAuthenticationToken {
+
+	private PreAuthorizationToken(String username, String password) {
+		super(username, password);
+	}
+	
+	public PreAuthorizationToken(FormLoginDto dto) {
+		this(dto.getUserId(), dto.getPassword());
+	}
+	
+	public String getUsername() {
+		return (String)super.getPrincipal();
+	}
+	
+	public String getUserPassword() {
+		return (String)super.getCredentials();
+	}
+}
+~~~
+
+UsernamePasswordAuthenticationToken 사용자 이름 비밀번호 인증 토큰 클래스를 상속받습니다.
+
+로그인한 사용자의 권환을 확인하기 위해서 Pre Token 을 생성완료했으니 Provider 로 보내도록 하겠습니다.
+
+#### FormLoginAuthenticationProvider
+
+로그인한 사용자의 인증 권환을 검사합니다.
+
+
 
 #### Hendlers 인증 성공(인증객체 생성)
 
@@ -1102,53 +1245,6 @@ AuthenticationFailureHandler 구현체에서는 `로그인을 실패`했을때 �
 
 onAuthenticationFailure 메서드를 @Override 해줍니다.
 `로그인 접근의 실패 정보`를 알려주도록 해줍니다.
-
-#### 인증 필터
-
-인증 성공/실패 핸들러를 만들었으니 이제 필터 부분에서 인증과정만 추가해주면 됩니다.
-
-> project.security.filters.FormLoginFilter
-
-~~~
-public class FormLoginFilter extends AbstractAuthenticationProcessingFilter {
-
-	@Override
-	public Authentication attemptAuthentication(
-			HttpServletRequest request, 
-			HttpServletResponse response
-			)
-			throws AuthenticationException, IOException, ServletException {
-		return null;
-	}
-}
-~~~
-
-attemptAuthentication 메서드를 @Override 해줍니다.
-
-AbstractAuthenticationProcessingFilter 클래스의 doFilter 메서드로 인해서 
-`가장 처음 인증 attemptAuthentication 메서드를 실행`합니다.
-
-만약 attemptAuthentication 메서드에서 `인증이 성공한다면 doFilter 메서드` 에서
-~~~
-// Authentication success
-if (continueChainBeforeSuccessfulAuthentication) {
-	chain.doFilter(request, response);
-}
-
-successfulAuthentication(request, response, chain, authResult);
-~~~
-`successfulAuthentication 으로 메서드를 실행`시키도록 해줍니다. `(인증 실패도 동일)`
-
-사용자입력 `ID and Password 를 req 로 받은 값을 ObjectMapper 객체로 JSON 으로 변환`하여 FormLoginDto형식으로 저장합니다.
-(결과 `FormLoginDto(userid=asd, password=asd) 식으로 변환`됩니다.)
-
-사용자입력값이 존재하는지 비교하기 위해서 DTO 를 `인증 '전' Token 객체에 넣어 PreAuthorizationToken 을 생성`합니다.
-
-위 사용자의 값을 가지고 attemptAuthentication는 인증을 시도합니다.
-`인증 시도는 FormLoginAuthenticationProvider` 에서 하게됩니다.
-
-PreAuthorizationToken 해당 객체에 맞는 Provider를 
-`getAuthenticationManager 해당 메서드가 자동으로 찾아서 연결해` 준다.
 
 # 공부에 도움이 많이 된 출처!
 
