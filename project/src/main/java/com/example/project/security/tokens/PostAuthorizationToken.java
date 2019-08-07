@@ -2,20 +2,14 @@ package com.example.project.security.tokens;
 
 import java.util.Collection;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.GrantedAuthority;
 
 import com.example.project.domain.Account;
-import com.example.project.enums.EnumMapper;
+import com.example.project.security.context.AccountContext;
 
 public class PostAuthorizationToken extends UsernamePasswordAuthenticationToken {
 	
-	private static final Logger log = LoggerFactory.getLogger(PostAuthorizationToken.class);
-	
-	private static EnumMapper enumMapper;
-
 	private PostAuthorizationToken(
 			Object principal, 
 			Object credentials,
@@ -24,18 +18,16 @@ public class PostAuthorizationToken extends UsernamePasswordAuthenticationToken 
 		super(principal, credentials, authorities);
 	}
 	
-	public static PostAuthorizationToken getTokenFromAccountContext(Account account) {
-		
-		log.error();
+	public static PostAuthorizationToken getTokenFromAccountContext(AccountContext context) {
 		
 		return new PostAuthorizationToken(
-				account, 
-				account.getPassword(), 
-				enumMapper.userRoleList(account.getUserRole())
+				context, 
+				context.getPassword(), 
+				context.getAuthorities()
 				);
-	} 
+	}
 	
-	 public Account getAccount() {
-		 return (Account)super.getPrincipal();
-	 }
+	public AccountContext getAccountContext() {
+		 return (AccountContext)super.getPrincipal();
+	}
 }

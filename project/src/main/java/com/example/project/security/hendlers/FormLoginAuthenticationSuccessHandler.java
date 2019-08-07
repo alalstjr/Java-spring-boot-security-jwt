@@ -12,8 +12,8 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.web.authentication.AuthenticationSuccessHandler;
 import org.springframework.stereotype.Component;
 
-import com.example.project.domain.Account;
 import com.example.project.dto.TokenDto;
+import com.example.project.security.context.AccountContext;
 import com.example.project.security.jwts.JwtFactory;
 import com.example.project.security.tokens.PostAuthorizationToken;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -38,12 +38,12 @@ public class FormLoginAuthenticationSuccessHandler implements AuthenticationSucc
 		// Token 값을 정형화된 DTO를 만들어서 res 으로 내려주는 역활을 수행한다.
 		// 인증결과 객체 auth 를 PostAuthorizationToken객체 변수에 담아줍니다. 
 		PostAuthorizationToken token = (PostAuthorizationToken) auth;
-		Account context = (Account) token.getPrincipal();
+		AccountContext context = (AccountContext) token.getPrincipal();
 		
 		String tokenString = factory.generateToken(context);
 		
-		String username = token.getName();
-		String userId = token.getAccount().getUserId();
+		String username = token.getAccountContext().getAccount().getUsername();
+		String userId = token.getAccountContext().getAccount().getUserId();
 		
 		processRespone(res, writeDto(tokenString, username, userId));
 	}

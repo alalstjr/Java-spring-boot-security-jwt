@@ -1222,7 +1222,9 @@ public class FormLoginAuthenticationProvider implements AuthenticationProvider {
 		
 		// 4.
 		if(isCorrectPassword(password, account)) {
-			return PostAuthorizationToken.getTokenFromAccountContext(account);
+			return PostAuthorizationToken
+				.getTokenFromAccountContext(AccountContext.fromAccountModel(account));
+				// 6.
 		}
 
 		// 이곳까지 통과하지 못하면 잘못된 요청으로 접근하지 못한것 그러므로 throw 해줘야 한다.
@@ -1278,6 +1280,8 @@ Consider defining a bean of type 'org.springframework.security.crypto.bcrypt.BCr
 Bean 등록 위치도 중요하다는 것을 이번 작업을 통해서 하나더 배웠습니다.
 SecurityConfig 에서 Bean 등록을 해줘도 순환 오류가 나와서 console 을찍어보니 Bean 등록이 되기도 전에 값을 받아와서 오류가 발생하였습니다.
 
+#### WebMvcConfig 생성
+
 > project.security.config.WebMvcConfig
 
 ~~~
@@ -1307,6 +1311,66 @@ form action 진행 시 해당 클래스의 supports() > authenticate() 순으로
 
 사용자 인증이 완료되면 사용자에게 권한을 부여한 토큰을 생성하여 return 해줘야 합니다.
 PostAuthorizationToken 클래스를 생성합니다.
+
+6. PostAuthorizationToken.getTokenFromAccountContext 매개변수로 AccountContext.fromAccountModel(account) 값을 받습니다. Account 가 아닌 AccountContext 로 받는 이유는 Account 가 Spring Security 에서 지원하는 User 클래스를 상속받기 위해서 입니다. (쭌피셜)
+
+User 클래스의 GrantedAuthority 권한값을 지원 받기 위해서 AccountContext 를 만들어 줍니다.
+
+#### User 상속한 AccountContext 생성
+
+> project.security.context
+
+~~~
+public class AccountContext extends User {
+
+	private Account account;
+	
+	// private static EnumMapper enumMapper; 
+	// enumMapper userRoleList 메서드를 따로 담아서 사용하면 좋을꺼 같은데.. 안된다.. 더 찾아보자
+
+	private AccountContext(
+			Account account, 
+			String username, 
+			String password, 
+			Collection<? extends GrantedAuthority> authorities
+			) {
+		super(username, password, authorities);
+		this.account = account;
+	}
+	
+	// 1.
+	public static AccountContext fromAccountModel(Account account) {
+		return new AccountContext(
+				account, 
+				account.getUserId(), 
+				account.getPassword(), 
+				userRoleList(account.getUserRole())
+				// enumMapper.userRoleList(account.getUserRole())
+				);
+	}
+	
+	// 2. 
+	private static List<SimpleGrantedAuthority> userRoleList(UserRole role) 
+	{
+		return Arrays
+				.asList(role)
+				.stream()
+				.map(r -> new SimpleGrantedAuthority(r.getValue()))
+				.collect(Collectors.toList());
+	}
+	
+	// 3. 
+	public final Account getAccount() {
+		return account;
+	}
+}
+~~~
+
+1. AccountContext 객체를 생성 합니다. fromAccountModel 통해서 AccountContext 접근 가능합니다.
+
+2. 유저의 권한 정보를 SimpleGrantedAuthority 형식의 List로 변환 저장해야 하기 때문에 userRoleList 변환 메서드를 만들어 줍니다.
+
+3. AccountContext 주입된 Account의 정보를 가져오는 역활을 합니다. JwtFactory 토큰을 생성할때 AccountContext 정보를 담아 줄 때 사용합니다.
 
 ### 5. 인증 후 Token PostAuthorizationToken 생성
 
@@ -1386,7 +1450,7 @@ public class FormLoginAuthenticationSuccessHandler implements AuthenticationSucc
 			) throws IOException, ServletException {
 
 		PostAuthorizationToken token = (PostAuthorizationToken) auth;
-		Account context = (Account) token.getPrincipal();
+		AccountContext context = (AccountContext) token.getPrincipal();
 		
 		// 2.
 		String tokenString = factory.generateToken(context);
@@ -1448,13 +1512,13 @@ public class JwtFactory {
 	private static String signingKey = "jwttest";
 	
 	// 1.
-	public String generateToken(Account account) {
+	public String generateToken(AccountContext account) {
 		String token = null;
 		try {
-			token = JWT.create()
+			token = JWT.create() 
 					.withIssuer("jjunpro")
-					.withClaim("USERNAME", account.getUserId())
-					.withClaim("USER_ROLE", account.getUserRole().getValue())
+					.withClaim("USERNAME", account.getAccount().getUserId())
+					.withClaim("USER_ROLE", account.getAccount().getUserRole().getKey())
 					.withClaim("EXP", new Date(System.currentTimeMillis() + 864000000))
 					.sign(generateAlgorithm());
 		} catch(Exception e) {
@@ -1559,6 +1623,22 @@ addFilterBefore 필터 등록을 해줍니다.
 2. provider 등록 해줍니다.
 
 https://docs.spring.io/spring-security/site/docs/4.2.12.RELEASE/apidocs/org/springframework/security/authentication/AuthenticationManager.html- [AuthenticationManager DOCS]
+
+### Token 발급 결과 확인
+
+![token-1](/images/token-1.png)
+![token-2](/images/token-2.png)
+![token-3](/images/token-3.png)
+
+정상적으로 JWT Token 값이 발급되었습니다.
+
+JWT Token 확인은 https://jwt.io/ 에서 할 수 있습니다.
+
+JWT Token 발급 글만 정리하는데 엄청난 시간이 소비된거같습니다.
+회사 일이랑 병행하면서 하다보니 더 힘들었지만 회사 끝나고 틈틈히 작성하고 하다보니 완성이 되긴 했습니다.
+보는 사람이 나 말고는 없겠지만 틈틈히 참고해야겠습니다.
+
+다음엔 JWT Token 값으로 회원인 유저만 접근 가능한 페이지를 만들어보는 글을 정리하겠습니다.
 
 # 공부에 도움이 많이 된 출처!
 
