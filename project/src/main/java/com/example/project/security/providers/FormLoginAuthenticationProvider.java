@@ -2,10 +2,12 @@ package com.example.project.security.providers;
 
 import java.util.NoSuchElementException;
 
+import org.springframework.context.annotation.Bean;
 import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.AuthenticationException;
-import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.stereotype.Service;
 
 import com.example.project.domain.Account;
 import com.example.project.repository.AccountRepository;
@@ -14,13 +16,14 @@ import com.example.project.security.tokens.PreAuthorizationToken;
 
 import lombok.AllArgsConstructor;
 
+@Service
 @AllArgsConstructor
 public class FormLoginAuthenticationProvider implements AuthenticationProvider {
-
-	private PasswordEncoder passwordEncoder;
 	
 	private AccountRepository accountRepository;
 	
+	private BCryptPasswordEncoder passwordEncoder;
+
 	@Override
 	public Authentication authenticate(Authentication authentication) throws AuthenticationException {
 		PreAuthorizationToken token = (PreAuthorizationToken)authentication;

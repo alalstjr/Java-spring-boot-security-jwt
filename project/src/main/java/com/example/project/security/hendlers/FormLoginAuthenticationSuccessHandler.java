@@ -43,7 +43,7 @@ public class FormLoginAuthenticationSuccessHandler implements AuthenticationSucc
 		String tokenString = factory.generateToken(context);
 		
 		String username = token.getName();
-		String userId = token.getAccountContext().getAccount().getUserId();
+		String userId = token.getAccount().getUserId();
 		
 		processRespone(res, writeDto(tokenString, username, userId));
 	}

@@ -14,7 +14,7 @@ public class AccountSaveRequestDto {
 	private String userId;
 	private String username;
 	private String password;
-	private UserRole userRole;
+	private UserRole userRole = UserRole.USER;
 	
 	public Account toEntity() {
 		return Account.builder()

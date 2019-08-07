@@ -749,13 +749,13 @@ public class UserServiceImpl implements UserService {
 
 	private AccountRepository accountRepository;
 
+	private BCryptPasswordEncoder passwordEncoder;
+
 	@Override
 	public Account saveOrUpdateUser(AccountSaveRequestDto dto) {
 		String rawPassword = dto.getPassword();
-		String encodedPassword = new BCryptPasswordEncoder().encode(rawPassword);
+		String encodedPassword = passwordEncoder.encode(rawPassword);
 		dto.setPassword(encodedPassword);
-
-		// 기존의 password 값을 spring BCryptPasswordEncoder 클래스로 암호화 하여 저장합니다.
 		
 		return accountRepository.save(dto.toEntity());
 	}
@@ -1201,8 +1201,10 @@ UsernamePasswordAuthenticationToken 사용자 이름 비밀번호 인증 토큰 
 @AllArgsConstructor
 public class FormLoginAuthenticationProvider implements AuthenticationProvider {
 
-	private PasswordEncoder passwordEncoder;
 	private AccountRepository accountRepository;
+
+	// 4.
+	private BCryptPasswordEncoder passwordEncoder;
 
 	// 1.
 	@Override
@@ -1258,6 +1260,47 @@ AuthenticationProvider 인터페이스를 상속 받습니다. 특정 Authentica
 
 로그인한 유저가 DB에 존재한다면 PostAuthorizationToken(권한이 부여된 토큰) 객체를 생성하여 return 합니다.
 
+BCryptPasswordEncoder 클래스를 주입 받으려면 BCryptPasswordEncoder Bean 을 등록해 줘야합니다.
+~~~
+***************************
+APPLICATION FAILED TO START
+***************************
+
+Description:
+Parameter 1 of constructor in com.example.project.security.providers.FormLoginAuthenticationProvider required a bean of type 'org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder' that could not be found.
+
+Action:
+Consider defining a bean of type 'org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder' in your configuration.
+~~~
+계속해서 위와 같은 오류가 발생하여 하루동안 찾아다녀서 결국 해결법을 찾았습니다.
+결국 Bean 이 등록이 안되어 있어서 나오는 오류 입니다. 등록을 해줍시다.
+
+Bean 등록 위치도 중요하다는 것을 이번 작업을 통해서 하나더 배웠습니다.
+SecurityConfig 에서 Bean 등록을 해줘도 순환 오류가 나와서 console 을찍어보니 Bean 등록이 되기도 전에 값을 받아와서 오류가 발생하였습니다.
+
+> project.security.config.WebMvcConfig
+
+~~~
+@Configuration
+@Order(1)
+public class WebMvcConfig {
+	
+	// BCryptPasswordEncoder Bean 등록
+    @Bean
+    public BCryptPasswordEncoder passwordEncoder() {
+        BCryptPasswordEncoder bCryptPasswordEncoder = new BCryptPasswordEncoder();
+        return bCryptPasswordEncoder;
+    }
+}
+~~~
+
+스프링의 @Configuration 어노테이션은 어노테이션기반 환경구성을 돕는다.
+webmvc config를 따로 만들어서 빈을 등록해주고 등록 순서를 @Order(1) 로 가장 첫번째로 실행할 수 있도록 등록합니다.
+
+https://stackoverflow.com/questions/51234536/a-bean-of-type-org-springframework-security-crypto-bcrypt-bcryptpasswordencoder/51234787 - [a bean of type 'org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder' that could not be found]
+
+http://tech.javacafe.io/spring/2018/11/04/%EC%8A%A4%ED%94%84%EB%A7%81-Configuration-%EC%96%B4%EB%85%B8%ED%85%8C%EC%9D%B4%EC%85%98-%EC%98%88%EC%A0%9C/ - [스프링 @Configuration 어노테이션 예제]
+
 5. AuthenticationProvider 인터페이스가 지정된 Authentication 객체를 지원하는 경우에 true를 리턴한다.
 
 form action 진행 시 해당 클래스의 supports() > authenticate() 순으로 인증 절차 진행합니다.
@@ -1293,6 +1336,11 @@ public class PostAuthorizationToken extends UsernamePasswordAuthenticationToken 
 			enumMapper.userRoleList(account.getUserRole())
 		);
 	}
+
+	// 3.
+	public Account getAccount() {
+		return (Account)super.getPrincipal();
+	}
 }
 ~~~
 
@@ -1308,6 +1356,8 @@ Collection<? extends GrantedAuthority> authorities - 권한을 List형태로 받
 `사용자의 지정한 권한 범위를 기술하기 위해 추상화된 클래스` (권한이 Role만 있는것이 아니기에 List 형태로 받습니다. 여러 가지 조건으로 제한이 가능하다는 것입니다.)
 
 2. 유저의 권한 정보를 생성자에 담아야 합니다 만 `GrantedAuthority 형태의 List 형식으로 값을 받아 처리`하기 때문에 전에 만들어 놨던 UserRole `EnumMapper 를 활용`하여 Role 값을 List로 변환하도록 하였습니다.
+
+3. 인증된 유저의 DTO 정보를 담고있습니다.
 
 ### 6. successfulAuthentication
 
@@ -1346,7 +1396,8 @@ public class FormLoginAuthenticationSuccessHandler implements AuthenticationSucc
 		
 		processRespone(res, writeDto(tokenString, username, userId));
 	}
-	 
+	
+	// 3.
 	private TokenDto writeDto(String token, String username, String userId) {
 		return new TokenDto(token, username, userId);
 	}
@@ -1369,7 +1420,9 @@ AuthenticationSuccessHandler 구현체에서는 `로그인을 성공`했을때 �
 1. onAuthenticationSuccess 메서드를 @Override 해줍니다.
 `Token 값을 정형화된 DTO를 만들어서 res 으로 내려주는 역할`을 수행합니다. 인증결과 객체 auth 를 PostAuthorizationToken객체 변수에 담아줍니다.
 
-2. PostAuthorizationToken객체에 담아줄 JWT Token 을 생성해야 합니다.
+2. PostAuthorizationToken객체에 담아줄 JWT Token 을 생성해야 합니다. 그 후 processRespone 메서드를 통해서 Response 상태와 jwt 값을 전송합니다.
+
+3. Token 값을 정형화된 DTO를 만들어 줍니다.
 
 #### JWT Token 생성
 
@@ -1401,7 +1454,7 @@ public class JwtFactory {
 			token = JWT.create()
 					.withIssuer("jjunpro")
 					.withClaim("USERNAME", account.getUserId())
-					.withClaim("USER_ROLE", account.getUserRole())
+					.withClaim("USER_ROLE", account.getUserRole().getValue())
 					.withClaim("EXP", new Date(System.currentTimeMillis() + 864000000))
 					.sign(generateAlgorithm());
 		} catch(Exception e) {
@@ -1447,6 +1500,66 @@ AuthenticationFailureHandler 구현체에서는 `로그인을 실패`했을때 �
 onAuthenticationFailure 메서드를 @Override 해줍니다.
 `로그인 접근의 실패 정보`를 알려주도록 해줍니다.
 
+### SecurityConfig 등록
+
+이제까지 만들어 놓은 Filter 그리고 Provider 를 등록하도록 하겠습니다.
+
+~~~
+@Configuration
+@EnableWebSecurity
+@AllArgsConstructor
+public class SecurityConfig extends WebSecurityConfigurerAdapter {
+	
+	private FormLoginAuthenticationSuccessHandler formLoginAuthenticationSuccessHandler;
+	private FormLoginAuthenticationFailuerHandler formLoginAuthenticationFailuerHandler;
+	
+	private FormLoginAuthenticationProvider provider;
+	
+	@Bean
+	public AuthenticationManager getAuthenticationManager() throws Exception {
+		return super.authenticationManagerBean();
+	}
+	
+	// 1.
+	protected FormLoginFilter formLoginFilter() throws Exception {
+		FormLoginFilter filter = new FormLoginFilter("/api/user/login", formLoginAuthenticationSuccessHandler, formLoginAuthenticationFailuerHandler);
+		filter.setAuthenticationManager(super.authenticationManagerBean());
+		
+		return filter;
+	}
+	
+	// 2.
+	@Override
+	protected void configure(AuthenticationManagerBuilder auth) throws Exception {
+		auth
+		.authenticationProvider(this.provider);
+	}
+	
+	@Override
+	protected void configure(HttpSecurity http) throws Exception {
+		http
+		.csrf()
+		.disable();
+		
+		http
+		.headers()
+		.frameOptions() 
+		.disable();
+		
+		// 1.
+		http
+		.addFilterBefore(formLoginFilter(), UsernamePasswordAuthenticationFilter.class);
+	}
+}
+~~~
+
+1. 사용자를 검사하는 특정 주소와 인증 성공&실패 핸들러를 담아서 formLoginFilter 메서드를 생성합니다.
+addFilterBefore 필터 등록을 해줍니다.
+
+2. provider 등록 해줍니다.
+
+https://docs.spring.io/spring-security/site/docs/4.2.12.RELEASE/apidocs/org/springframework/security/authentication/AuthenticationManager.html- [AuthenticationManager DOCS]
+
 # 공부에 도움이 많이 된 출처!
 
 https://velopert.com/2389 - [JSON Web Token 이 뭘까?]
@@ -1476,6 +1589,8 @@ https://to-dy.tistory.com/87 - [AuthenticationProvider 란?]
 
 https://post.naver.com/viewer/postView.nhn?volumeNo=10142629&memberNo=559061 - [static 전역 변수]
 https://12bme.tistory.com/94 - [static 변수 잘 사용하자]
+
+https://stackoverflow.com/questions/41663652/consider-defining-a-bean-of-type-service-in-your-configuration-spring-boot?rq=1 -[Consider defining a bean of type 'service' in your configuration]
 
 싱글톤 패턴
 
