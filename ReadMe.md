@@ -453,7 +453,7 @@ UserRole이 이를 구현(implements)하도록 변경하겠습니다.
 ~~~
 public enum UserRole implements EnumModel {
 	ADMIN("ROLE_ADMIN"),
-	USER("ROLE_ADMIN");
+	USER("ROLE_USER");
 	
 	private String roleName;
 	

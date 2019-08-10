@@ -2,7 +2,7 @@ package com.example.project.enums;
 
 public enum UserRole implements EnumModel {
 	ADMIN("ROLE_ADMIN"),
-	USER("ROLE_ADMIN");
+	USER("ROLE_USER");
 	
 	private String roleName;
 	
