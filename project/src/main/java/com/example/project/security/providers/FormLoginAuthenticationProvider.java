@@ -37,7 +37,7 @@ public class FormLoginAuthenticationProvider implements AuthenticationProvider {
 		
 		if(isCorrectPassword(password, account)) {
 			return PostAuthorizationToken
-					.getTokenFromAccountContext(AccountContext.fromAccountModel(account));
+					.getTokenFormAccountContext(AccountContext.fromAccountModel(account));
 		}
 
 		// 이곳까지 통과하지 못하면 잘못된 요청으로 접근하지 못한것 그러므로 throw 해줘야 한다.

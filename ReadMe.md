@@ -477,8 +477,8 @@ enum 타입이 EnumModel을 구현하도록 변경하였습니다.
 Java의 다형성으로, 
 인터페이스를 구현하게 될 경우 UserRole 이 EnumModel 타입으로 다룰수 있게 되었습니다.
 
-EnumModel을 이용하여 실제 값을 가지고 view에 전달할 수 있는 Dto를 만들겠습니다.
-Dto의 이름은 EnumValue입니다.
+EnumModel을 이용하여 실제 값을 가지고 view에 전달할 수 있는 DTO를 만들겠습니다.
+DTO의 이름은 EnumValue입니다.
 
 > project.enums.EnumValue
 
@@ -731,7 +731,7 @@ JUnit에선 이를 명시적으로 지원해주지 않아 주석으로 표현했
 
 ~~~
 public interface UserService {
-	public Account saveOrUpdateUser(AccountSaveRequestDto dto);
+	public Account saveOrUpdateUser(AccountSaveRequestDTO dto);
 }
 ~~~
 
@@ -752,7 +752,7 @@ public class UserServiceImpl implements UserService {
 	private BCryptPasswordEncoder passwordEncoder;
 
 	@Override
-	public Account saveOrUpdateUser(AccountSaveRequestDto dto) {
+	public Account saveOrUpdateUser(AccountSaveRequestDTO dto) {
 		String rawPassword = dto.getPassword();
 		String encodedPassword = passwordEncoder.encode(rawPassword);
 		dto.setPassword(encodedPassword);
@@ -815,7 +815,7 @@ public class AuthController {
 	// CREATE
 	@PostMapping("")
 	public ResponseEntity<?> insertUser(
-			@Valid @RequestBody AccountSaveRequestDto dto,
+			@Valid @RequestBody AccountSaveRequestDTO dto,
 			BindingResult result
 			) {
 		Account newAccount = userServiceImpl.saveOrUpdateUser(dto);
@@ -827,13 +827,13 @@ public class AuthController {
 
 ### Controller에서 사용할 DTO 클래스를 생성하기
 
-> project.dto.AccountSaveRequestDto
+> project.dto.AccountSaveRequestDTO
 
 ~~~
 @Getter
 @Setter
 @NoArgsConstructor
-public class AccountSaveRequestDto {
+public class AccountSaveRequestDTO {
 	private String userId;
 	private String username;
 	private String password;
@@ -924,7 +924,7 @@ BaseTime Entity 클래스는
 `모든 Entity들의 상위 클래스가 되어 Entity들의 createdDate, modifiedDate를 자동으로 관리하는 역할`입니다.
 
 - `@MappedSuperclass` - JPA Entity 클래스들이 BaseTimeEntity을 상속할 경우 필드들(createdDate, modifiedDate)도 컬럼으로 인식하도록 합니다.
-- `@EntityListeners(AuditingEntityListener.class)` - BaseTimeEntity클래스에 Auditing 기능을 포함시킵니다.
+- `@EntityListeners(AuditingEntityListener.class)` - 엔티티를 DB에 적용하기 이전 이후에 커스텀 콜백을 요청할 수 있는 어노테이션이다. BaseTimeEntity클래스에 Auditing 기능을 포함시킵니다.
 - `@CreatedDate` - Entity가 생성되어 저장될 때 시간이 자동 저장됩니다.
 - `@LastModifiedDate` - 조회한 Entity의 값을 변경할 때 시간이 자동 저장됩니다.
 
@@ -1089,8 +1089,8 @@ public class FormLoginFilter extends AbstractAuthenticationProcessingFilter {
 			throws AuthenticationException, IOException, ServletException {
 
 		// JSON 으로 변환
-		FormLoginDto dto = new ObjectMapper()
-				.readValue( req.getReader(), FormLoginDto.class );
+		FormLoginDTO dto = new ObjectMapper()
+				.readValue( req.getReader(), FormLoginDTO.class );
 		
 		// 사용자입력값이 존재하는지 비교
 		PreAuthorizationToken token = new PreAuthorizationToken(dto);
@@ -1164,6 +1164,10 @@ PreAuthorizationToken 해당 객체에 맞는 Provider를
 
 4. 인증 성공 or 실패 메서드 구현합니다.
 
+### FormLoginDto 생성
+
+> project.dto.FormLoginDTO
+
 ### 3. 인증 전 Token PreAuthorizationToken 생성
 
 > project.security.tokens.PreAuthorizationToken
@@ -1175,7 +1179,7 @@ public class PreAuthorizationToken extends UsernamePasswordAuthenticationToken {
 		super(username, password);
 	}
 	
-	public PreAuthorizationToken(FormLoginDto dto) {
+	public PreAuthorizationToken(FormLoginDTO dto) {
 		this(dto.getUserId(), dto.getPassword());
 	}
 	
@@ -1458,17 +1462,17 @@ public class FormLoginAuthenticationSuccessHandler implements AuthenticationSucc
 		String username = token.getAccountContext().getAccount().getUsername();
 		String userId = token.getAccountContext().getAccount().getUserId();
 		
-		processRespone(res, writeDto(tokenString, username, userId));
+		processRespone(res, writeDTO(tokenString, username, userId));
 	}
 	
 	// 3.
-	private TokenDto writeDto(String token, String username, String userId) {
-		return new TokenDto(token, username, userId);
+	private TokenDTO writeDTO(String token, String username, String userId) {
+		return new TokenDTO(token, username, userId);
 	}
 	
 	private void processRespone(
 			HttpServletResponse res,
-			TokenDto dto
+			TokenDTO dto
 			) throws JsonProcessingException, IOException {
 		res.setContentType(MediaType.APPLICATION_JSON_UTF8_VALUE);
 		res.setStatus(HttpStatus.OK.value());

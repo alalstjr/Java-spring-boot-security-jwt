@@ -2,7 +2,7 @@ package com.example.project.security.tokens;
 
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 
-import com.example.project.dto.FormLoginDto;
+import com.example.project.dto.FormLoginDTO;
 
 public class PreAuthorizationToken extends UsernamePasswordAuthenticationToken {
 
@@ -10,7 +10,7 @@ public class PreAuthorizationToken extends UsernamePasswordAuthenticationToken {
 		super(username, password);
 	}
 	
-	public PreAuthorizationToken(FormLoginDto dto) {
+	public PreAuthorizationToken(FormLoginDTO dto) {
 		this(dto.getUserId(), dto.getPassword());
 	}
 	

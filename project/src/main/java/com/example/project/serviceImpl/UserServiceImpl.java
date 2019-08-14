@@ -6,7 +6,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import com.example.project.domain.Account;
-import com.example.project.dto.AccountSaveRequestDto;
+import com.example.project.dto.AccountSaveRequestDTO;
 import com.example.project.repository.AccountRepository;
 import com.example.project.service.UserService;
 
@@ -21,7 +21,7 @@ public class UserServiceImpl implements UserService {
 	private BCryptPasswordEncoder passwordEncoder;
 
 	@Override
-	public Account saveOrUpdateUser(AccountSaveRequestDto dto) {
+	public Account saveOrUpdateUser(AccountSaveRequestDTO dto) {
 		String rawPassword = dto.getPassword();
 		String encodedPassword = passwordEncoder.encode(rawPassword);
 		dto.setPassword(encodedPassword);

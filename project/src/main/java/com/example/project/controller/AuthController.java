@@ -12,7 +12,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.example.project.domain.Account;
-import com.example.project.dto.AccountSaveRequestDto;
+import com.example.project.dto.AccountSaveRequestDTO;
 import com.example.project.serviceImpl.UserServiceImpl;
 
 import lombok.AllArgsConstructor;
@@ -27,7 +27,7 @@ public class AuthController {
 	// CREATE	
 	@PostMapping("")
 	public ResponseEntity<?> insertUser(
-			@Valid @RequestBody AccountSaveRequestDto dto,
+			@Valid @RequestBody AccountSaveRequestDTO dto,
 			BindingResult result
 			) {
 		Account newAccount = userServiceImpl.saveOrUpdateUser(dto);

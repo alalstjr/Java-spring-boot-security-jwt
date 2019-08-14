@@ -12,7 +12,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.web.authentication.AuthenticationSuccessHandler;
 import org.springframework.stereotype.Component;
 
-import com.example.project.dto.TokenDto;
+import com.example.project.dto.TokenDTO;
 import com.example.project.security.context.AccountContext;
 import com.example.project.security.jwts.JwtFactory;
 import com.example.project.security.tokens.PostAuthorizationToken;
@@ -48,13 +48,13 @@ public class FormLoginAuthenticationSuccessHandler implements AuthenticationSucc
 		processRespone(res, writeDto(tokenString, username, userId));
 	}
 	 
-	private TokenDto writeDto(String token, String username, String userId) {
-		return new TokenDto(token, username, userId);
+	private TokenDTO writeDto(String token, String username, String userId) {
+		return new TokenDTO(token, username, userId);
 	}
 	
 	private void processRespone(
 			HttpServletResponse res,
-			TokenDto dto
+			TokenDTO dto
 			) throws JsonProcessingException, IOException {
 		res.setContentType(MediaType.APPLICATION_JSON_UTF8_VALUE);
 		res.setStatus(HttpStatus.OK.value());

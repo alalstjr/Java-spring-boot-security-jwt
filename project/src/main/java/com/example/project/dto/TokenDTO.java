@@ -11,7 +11,7 @@ import lombok.Setter;
 @Getter
 @Setter
 @NoArgsConstructor
-public class TokenDto {
+public class TokenDTO {
 
 	@JsonInclude(JsonInclude.Include.NON_NULL)
 	@Transient
@@ -25,7 +25,7 @@ public class TokenDto {
 	@Transient
 	private String username;
 
-	public TokenDto(String token, String userId, String username) {
+	public TokenDTO(String token, String userId, String username) {
 		super();
 		this.token = token;
 		this.userId = userId;

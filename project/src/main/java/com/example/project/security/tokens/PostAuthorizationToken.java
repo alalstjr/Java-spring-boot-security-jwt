@@ -18,7 +18,7 @@ public class PostAuthorizationToken extends UsernamePasswordAuthenticationToken 
 		super(principal, credentials, authorities);
 	}
 	
-	public static PostAuthorizationToken getTokenFromAccountContext(AccountContext context) {
+	public static PostAuthorizationToken getTokenFormAccountContext(AccountContext context) {
 		
 		return new PostAuthorizationToken(
 				context, 

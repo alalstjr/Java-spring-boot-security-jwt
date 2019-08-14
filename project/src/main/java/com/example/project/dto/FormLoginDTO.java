@@ -11,7 +11,7 @@ import lombok.Setter;
 @Getter
 @Setter
 @NoArgsConstructor
-public class FormLoginDto {
+public class FormLoginDTO {
 
 	@JsonInclude(JsonInclude.Include.NON_NULL)
 	@Transient

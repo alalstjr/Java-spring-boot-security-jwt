@@ -13,7 +13,7 @@ import org.springframework.security.web.authentication.AbstractAuthenticationPro
 import org.springframework.security.web.authentication.AuthenticationFailureHandler;
 import org.springframework.security.web.authentication.AuthenticationSuccessHandler;
 
-import com.example.project.dto.FormLoginDto;
+import com.example.project.dto.FormLoginDTO;
 import com.example.project.security.tokens.PreAuthorizationToken;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -41,8 +41,8 @@ public class FormLoginFilter extends AbstractAuthenticationProcessingFilter {
 			HttpServletResponse res
 			)
 			throws AuthenticationException, IOException, ServletException {
-		FormLoginDto dto = new ObjectMapper()
-				.readValue( req.getReader(), FormLoginDto.class );
+		FormLoginDTO dto = new ObjectMapper()
+				.readValue( req.getReader(), FormLoginDTO.class );
 		
 		PreAuthorizationToken token = new PreAuthorizationToken(dto);
 		
