@@ -1098,6 +1098,7 @@ public class FormLoginFilter extends AbstractAuthenticationProcessingFilter {
 		
 		// PreAuthorizationToken 해당 객체에 맞는 Provider를 
 		// getAuthenticationManager 해당 메서드가 자동으로 찾아서 연결해 준다.
+		// 자동으로 찾아준다고 해도 Provider 에 직접 PreAuthorizationToken 지정해 줘야 찾아갑니다.
 		
 		return super
 				.getAuthenticationManager()
@@ -1236,6 +1237,7 @@ public class FormLoginAuthenticationProvider implements AuthenticationProvider {
 	}
 
 	// 5.
+	// Provider 를 연결 해주는 메소드 PreAuthorizationToken 사용한 filter 를 검색 후 연결
 	@Override
 	public boolean supports(Class<?> authentication) {
 		return PreAuthorizationToken.class.isAssignableFrom(authentication);
@@ -1315,6 +1317,13 @@ form action 진행 시 해당 클래스의 supports() > authenticate() 순으로
 
 사용자 인증이 완료되면 사용자에게 권한을 부여한 토큰을 생성하여 return 해줘야 합니다.
 PostAuthorizationToken 클래스를 생성합니다.
+
+PreAuthorizationToken.class.isAssignableFrom(authentication) 를 지정하므로서 
+Security 에서 Filter 에서 사용한 PreAuthorizationToken 를 참고해서 여러곳을 검색하여 해당 Provider 로 연결 해줍니다.
+
+예시로 JWTProvider 같은경우에는 JwtPreProcessingToken 를 사용하고 있어서 JWTProvider 에는 
+JwtPreProcessingToken.class.isAssignableFrom(authentication)
+로 연결되어 있어서 자동으로 Provider 검색하여 해당 Pre 클래스가 있는곳을 찾아 Provider를 연결해 줍니다.
 
 6. PostAuthorizationToken.getTokenFromAccountContext 매개변수로 AccountContext.fromAccountModel(account) 값을 받습니다. Account 가 아닌 AccountContext 로 받는 이유는 Account 가 Spring Security 에서 지원하는 User 클래스를 상속받기 위해서 입니다. (쭌피셜)
 
