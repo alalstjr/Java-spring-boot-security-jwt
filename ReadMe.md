@@ -279,7 +279,7 @@ public class Account extends BaseTime {
 	private String username;
 	
 	@Column(name = "ACCOUNT_PASSWORD", nullable = false)
-	@NotBlank(message = "비밀번호는 비워 둘 수 없브니다.")
+	@NotBlank(message = "비밀번호는 비워둘 수 없습니다.")
 	private String password;
 	
 	@Column(name = "ACCOUN_ROLE", nullable = false)
