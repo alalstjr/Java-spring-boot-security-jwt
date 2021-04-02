@@ -58,6 +58,17 @@
             - [4-6-8-3. handler 인증 실패](#handler-인증-실패)
         - [4-6-9. SecurityConfig 등록](#SecurityConfig-등록)
         - [4-6-10. Token 발급 결과 확인](#Token-발급-결과-확인)
+- [5. 발급받은 JWToken 을 활용하여 USER 권한만 접근 가능한 페이지 만들기](#발급받은-JWToken-을-활용하여-USER-권한만-접근-가능한-페이지-만들기)
+    - [5-1. JWT Provider 추가하기](#JWT-Provider-추가하기)
+        - [5-1-1. JWToken 을 해석해서 받은 로그인 정보 DTO 로 전달하기](#JWToken-을-해석해서-받은-로그인-정보-DTO-로-전달하기)
+        - [5-1-2. JwtDecoder](#JwtDecoder)
+            - [5-1-2-1. AccountDTO 생성](#AccountDTO-생성)
+    - [5-2. JwtAuthenticationFilter](#JwtAuthenticationFilter)
+        - [5-2-1. JwtPreProcessingToken](#JwtPreProcessingToken)
+        - [5-2-2. HeaderTokenExtractor](#HeaderTokenExtractor)
+    - [5-3. FilterSkipMatcher](#FilterSkipMatcher)
+    - [5-4. JWToken 로그인 결과 확인하기](#JWToken-로그인-결과-확인하기)
+
 
 # 2021년 4월 코드 업데이트 완료
 
@@ -952,11 +963,11 @@ public saveOrUpdateAccount(AccountRepository accountRepository) {
 
 ~~~
 @RestController
-@AllArgsConstructor
+@RequiredArgsConstructor
 @RequestMapping("/api/account")
 public class AccountController {
 
-    private AccountServiceImpl accountService;
+    private final AccountServiceImpl accountService;
 
     @PostMapping("")
     public ResponseEntity<?> insertAccount(
@@ -1396,6 +1407,8 @@ UsernamePasswordAuthenticationToken 사용자 이름 비밀번호 인증 토큰 
 
 ### 4. 인증 후 Token PostAuthorizationToken 생성
 
+> demo.security.token.PostAuthorizationToken
+
 ~~~
 public class PostAuthorizationToken extends UsernamePasswordAuthenticationToken {
 
@@ -1437,6 +1450,8 @@ public class PostAuthorizationToken extends UsernamePasswordAuthenticationToken 
 ### 5. FormLoginAuthenticationProvider
 
 로그인한 사용자의 인증 권한을 검사합니다.
+
+> demo.security.provider.FormLoginAuthenticationProvider
 
 ~~~
 @Component
@@ -1694,6 +1709,8 @@ onAuthenticationFailure 메서드를 @Override 해줍니다.
 
 이제까지 만들어 놓은 Filter 그리고 Provider 를 등록하도록 하겠습니다.
 
+> demo.config.SecurityConfig
+
 ~~~
 @Configuration
 @EnableWebSecurity
@@ -1772,6 +1789,428 @@ JWT Token 확인은
 JWT Token 발급 글만 정리하는데 엄청난 시간이 소비된거같습니다.  
 회사 일이랑 병행하면서 하다보니 더 힘들었지만 회사 끝나고 틈틈히 작성하고 하다보니 완성이 되긴 했습니다.  
 보는 사람이 나 말고는 없겠지만 틈틈히 참고해야겠습니다.
+
+# 발급받은 JWToken 을 활용하여 USER 권한만 접근 가능한 페이지 만들기
+
+> demo.controller.AccountController
+
+~~~
+@RestController
+@RequiredArgsConstructor
+@RequestMapping("/api/account")
+public class AccountController {
+
+    ...
+
+    @GetMapping("")
+    public ResponseEntity<?> viewAccount() {
+
+        return new ResponseEntity<>("Success!", HttpStatus.OK);
+    }
+}
+~~~
+
+Controller 위치에 GET 으로 '/api/account' 접근할 경우 JWToken 을 소유한 유저만 접근 가능하도록 만들겠습니다.  
+
+> demo.config.SecurityConfig
+
+~~~
+...
+public class SecurityConfig extends WebSecurityConfigurerAdapter {
+
+    private final JWTAuthenticationProvider       jwtProvider;
+    private final HeaderTokenExtractor            headerTokenExtractor;
+
+    @Override
+    protected void configure(AuthenticationManagerBuilder auth) {
+        auth
+                .authenticationProvider(this.provider)
+                .authenticationProvider(this.jwtProvider);
+    }
+
+    @Override
+    protected void configure(HttpSecurity http) throws Exception {
+        ...
+
+        // 1.
+        http
+                .sessionManagement()
+                .sessionCreationPolicy(SessionCreationPolicy.STATELESS);
+
+        // 2.
+        http
+                .addFilterBefore(
+                        formLoginFilter(),
+                        UsernamePasswordAuthenticationFilter.class
+                )
+                .addFilterBefore(
+                        jwtFilter(),
+                        UsernamePasswordAuthenticationFilter.class
+                );
+
+        // 3. 
+        http
+                .authorizeRequests()
+                .mvcMatchers(
+                        HttpMethod.GET,
+                        "/api/account"
+                )
+                .hasRole("USER");
+    }
+
+    private JwtAuthenticationFilter jwtFilter() throws Exception {
+        List<String> skipPath = new ArrayList<>();
+
+        // Static 정보 접근 허용
+        skipPath.add("GET,/error");
+        skipPath.add("GET,/favicon.ico");
+        skipPath.add("GET,/static");
+        skipPath.add("GET,/static/**");
+
+        skipPath.add("POST,/api/account");
+        skipPath.add("POST,/api/account/login");
+
+        FilterSkipMatcher matcher = new FilterSkipMatcher(
+                skipPath,
+                "/**"
+        );
+
+        JwtAuthenticationFilter filter = new JwtAuthenticationFilter(
+                matcher,
+                headerTokenExtractor
+        );
+        filter.setAuthenticationManager(super.authenticationManagerBean());
+
+        return filter;
+    }
+}
+~~~
+
+- 1.
+    - 서버에서 인증은 JWT로 인증하기 때문에 Session의 생성을 막습니다.
+- 2.
+    - UsernamePasswordAuthenticationFilter 이전에 FormLoginFilter, JwtFilter 를 등록합니다.
+    - FormLoginFilter : 로그인 인증을 실시합니다.
+    - JwtFilter       : 서버에 접근시 JWT 확인 후 인증을 실시합니다.
+- 3.
+    - 권한(USER)이 필요한 접근 설정
+
+이제 GET 으로 '/api/account' 접근하려면 발급받은 토큰을  
+Bearer token 매칭되야 접근 할 수 있도록 하겠습니다.
+
+## JWT Provider 추가하기
+
+> demo.security.provider.JWTAuthenticationProvider
+
+~~~
+@Component
+@RequiredArgsConstructor
+public class JWTAuthenticationProvider implements AuthenticationProvider {
+
+    private final JwtDecoder jwtDecoder;
+
+    @Override
+    public Authentication authenticate(Authentication authentication)
+            throws AuthenticationException {
+        String     token      = (String) authentication.getPrincipal();
+        AccountDTO accountDTO = jwtDecoder.decodeJwt(token);
+
+        return PostAuthorizationToken.getTokenFormUserDetails(accountDTO);
+    }
+
+    @Override
+    public boolean supports(Class<?> authentication) {
+        return JwtPreProcessingToken.class.isAssignableFrom(authentication);
+    }
+}
+~~~
+
+### JWToken 을 해석해서 받은 로그인 정보 DTO 로 전달하기
+
+> demo.security.token.PostAuthorizationToken
+
+~~~
+public class PostAuthorizationToken extends UsernamePasswordAuthenticationToken {
+
+    ...
+
+    public static PostAuthorizationToken getTokenFormUserDetails(AccountDTO accountDTO) {
+        Set<GrantedAuthority> grantedAuthorities = new HashSet<>();
+        grantedAuthorities.add(
+                new SimpleGrantedAuthority(accountDTO.getRole())
+        );
+
+        return new PostAuthorizationToken(
+                accountDTO,
+                "null password",
+                grantedAuthorities
+        );
+    }
+    
+    ...
+}
+~~~
+
+### JwtDecoder
+
+> demo.security.jwt.JwtDecoder
+
+~~~
+@Component
+public class JwtDecoder {
+
+    private final Logger log = LoggerFactory.getLogger(this.getClass());
+
+    public AccountDTO decodeJwt(String token) {
+        DecodedJWT decodedJWT = isValidToken(token)
+                .orElseThrow(() -> new NoSuchElementException("유효한 토큰아 아닙니다."));
+
+        String username = decodedJWT
+                .getClaim("USERNAME")
+                .asString();
+
+        String role = decodedJWT
+                .getClaim("USER_ROLE")
+                .asString();
+
+        return new AccountDTO(username, role);
+    }
+
+    private Optional<DecodedJWT> isValidToken(String token) {
+        DecodedJWT jwt = null;
+
+        try {
+            Algorithm algorithm = Algorithm.HMAC256("jwttest");
+            JWTVerifier verifier = JWT
+                    .require(algorithm)
+                    .build();
+
+            jwt = verifier.verify(token);
+        } catch (Exception e) {
+            log.error(e.getMessage());
+        }
+
+        return Optional.ofNullable(jwt);
+    }
+}
+~~~
+
+#### AccountDTO 생성
+
+> demo.dto.AccountDTO
+
+~~~
+@Getter
+@Setter
+@NoArgsConstructor
+public class AccountDTO {
+
+    private String username;
+
+    private String role;
+
+    public AccountDTO(String username, String role) {
+        super();
+        this.username = username;
+        this.role = role;
+    }
+}
+~~~
+
+## JwtAuthenticationFilter
+
+> demo.security.filter.JwtAuthenticationFilter
+
+~~~
+public class JwtAuthenticationFilter extends AbstractAuthenticationProcessingFilter {
+
+    private final HeaderTokenExtractor extractor;
+
+    public JwtAuthenticationFilter(
+            RequestMatcher requiresAuthenticationRequestMatcher,
+            HeaderTokenExtractor extractor
+    ) {
+        super(requiresAuthenticationRequestMatcher);
+
+        this.extractor = extractor;
+    }
+
+    @Override
+    public Authentication attemptAuthentication(
+            HttpServletRequest request,
+            HttpServletResponse response
+    ) throws AuthenticationException {
+
+        // JWT 값을 담아주는 변수 TokenPayload
+        String tokenPayload = request.getHeader("Authorization");
+
+        JwtPreProcessingToken preAuthorizationToken = new JwtPreProcessingToken(
+                extractor.extract(tokenPayload, request));
+
+        return super
+                .getAuthenticationManager()
+                .authenticate(preAuthorizationToken);
+    }
+
+    @Override
+    protected void successfulAuthentication(
+            HttpServletRequest request,
+            HttpServletResponse response,
+            FilterChain chain,
+            Authentication authResult
+    ) throws IOException, ServletException {
+        /*
+         *  SecurityContext 사용자 Token 저장소를 생성합니다.
+         *  SecurityContext 에 사용자의 인증된 Token 값을 저장합니다.
+         */
+        SecurityContext context = SecurityContextHolder.createEmptyContext();
+
+        context.setAuthentication(authResult);
+        SecurityContextHolder.setContext(context);
+
+        // FilterChain chain 해당 필터가 실행 후 다른 필터도 실행할 수 있도록 연결실켜주는 메서드
+        chain.doFilter(
+                request,
+                response
+        );
+    }
+
+    @Override
+    protected void unsuccessfulAuthentication(
+            HttpServletRequest request,
+            HttpServletResponse response,
+            AuthenticationException failed
+    ) {
+        /*
+         *	로그인을 한 상태에서 Token값을 주고받는 상황에서 잘못된 Token값이라면
+         *	인증이 성공하지 못한 단계 이기 때문에 잘못된 Token값을 제거합니다.
+         *	모든 인증받은 Context 값이 삭제 됩니다.
+         */
+        SecurityContextHolder.clearContext();
+
+        this.unsuccessfulAuthentication(
+                request,
+                response,
+                failed
+        );
+    }
+}
+~~~
+
+Token 을 내려주는 Filter 가 아닌  client 에서 받아지는 Token 을 서버 사이드에서 검증하는 클레스 SecurityContextHolder 보관소에 해당  
+Token 값의 인증 상태를 보관 하고 필요할때 마다 인증 확인 후 권한 상태 확인 하는 기능
+
+### JwtPreProcessingToken
+
+> demo.security.token.JwtPreProcessingToken
+
+~~~
+public class JwtPreProcessingToken extends UsernamePasswordAuthenticationToken {
+
+    private JwtPreProcessingToken(
+            Object principal,
+            Object credentials
+    ) {
+        super(
+                principal,
+                credentials
+        );
+    }
+
+    public JwtPreProcessingToken(String token) {
+        this(
+                token,
+                token.length()
+        );
+    }
+}
+~~~
+
+### HeaderTokenExtractor
+
+> demo.security.jwt.HeaderTokenExtractor
+
+~~~
+@Component
+public class HeaderTokenExtractor {
+
+    /*
+     * HEADER_PREFIX
+     * header Authorization token 값의 표준이되는 변수
+     */
+    public final String HEADER_PREFIX = "Bearer ";
+
+    private Logger log = LoggerFactory.getLogger(this.getClass());
+
+    public String extract(String header, HttpServletRequest request) {
+        /*
+         * - Token 값이 올바르지 않은경우 -
+         * header 값이 비어있거나 또는 HEADER_PREFIX 값보다 짧은 경우
+         * 이셉션을(예외)를 던져주어야 합니다.
+         */
+        if (header == null || header.equals("") || header.length() < HEADER_PREFIX.length()) {
+            log.info("error request : " + request.getRequestURI());
+            throw new NoSuchElementException("올바른 JWT 정보가 아닙니다.");
+        }
+
+        /*
+         * - Token 값이 존재하는 경우 -
+         * (bearer ) 부분만 제거 후 token 값 반환
+         */
+        return header.substring(
+                HEADER_PREFIX.length(),
+                header.length()
+        );
+    }
+}
+~~~
+
+## FilterSkipMatcher
+
+> demo.security.common.FilterSkipMatcher
+
+~~~
+public class FilterSkipMatcher implements RequestMatcher {
+
+    private final OrRequestMatcher orRequestMatcher;
+    private final RequestMatcher   processingMatcher;
+
+    public FilterSkipMatcher(
+            List<String> pathToSkip,
+            String processingPath
+    ) {
+        this.orRequestMatcher = new OrRequestMatcher(pathToSkip
+                .stream()
+                .map(this :: httpPath)
+                .collect(Collectors.toList()));
+        this.processingMatcher = new AntPathRequestMatcher(processingPath);
+    }
+
+    private AntPathRequestMatcher httpPath(String skipPath) {
+        String[] splitStr = skipPath.split(",");
+
+        /*
+         * 배열 [1] httpMathod 방식 post get 인지 구분
+         * 배열 [0] 제외하는 url
+         * */
+        return new AntPathRequestMatcher(
+                splitStr[1],
+                splitStr[0]
+        );
+    }
+
+    @Override
+    public boolean matches(HttpServletRequest req) {
+        return !orRequestMatcher.matches(req) && processingMatcher.matches(req);
+    }
+}
+~~~
+
+## JWToken 로그인 결과 확인하기
+
+![token-1](/images/token-1.png)
+![token-2](/images/token-2.png)
+![token-4](/images/token-4.png)
 
 # 공부에 도움이 많이 된 출처!
 

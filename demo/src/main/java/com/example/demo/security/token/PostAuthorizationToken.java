@@ -1,8 +1,12 @@
 package com.example.demo.security.token;
 
+import com.example.demo.dto.AccountDTO;
 import java.util.Collection;
+import java.util.HashSet;
+import java.util.Set;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
 public class PostAuthorizationToken extends UsernamePasswordAuthenticationToken {
@@ -22,6 +26,19 @@ public class PostAuthorizationToken extends UsernamePasswordAuthenticationToken 
                 userDetails,
                 userDetails.getPassword(),
                 userDetails.getAuthorities()
+        );
+    }
+
+    public static PostAuthorizationToken getTokenFormUserDetails(AccountDTO accountDTO) {
+        Set<GrantedAuthority> grantedAuthorities = new HashSet<>();
+        grantedAuthorities.add(
+                new SimpleGrantedAuthority(accountDTO.getRole())
+        );
+
+        return new PostAuthorizationToken(
+                accountDTO,
+                "null password",
+                grantedAuthorities
         );
     }
 
