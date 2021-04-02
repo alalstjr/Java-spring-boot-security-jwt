@@ -279,7 +279,8 @@ JSON Web Token 의 마지막 부분은 바로 서명(signature) 입니다.
 # Spring Boot 개발환경 설정
 
 Spring Boot 프로젝트를 만드는 가장 빠른 방법은 Spring Initializr 을 사용하여 기본 코드를 생성하는 것입니다.  
-[Spring Initializr](https://start.spring.io/){:target="_blank"} 사이트로 접속하여 dependencies 를 다음과같이 선택 생성해 줍니다.
+<a href="https://start.spring.io/" target="_blank">Spring Initializr</a> 
+사이트로 접속하여 dependencies 를 다음과같이 선택 생성해 줍니다.
 
 - DEVELOPER TOOLS
     - `Lombok`
@@ -476,7 +477,8 @@ Example.builder()
 ~~~
 
 어느 필드에 `어떤 값을 채워야 할지 명확하게 인지`할 수 있습니다.  
-[빌더 패턴 소개](https://using.tistory.com/71){:target="_blank"} 에서 더 정확하게 확인하실 수 있습니다.
+<a href="https://using.tistory.com/71" target="_blank">빌더 패턴 소개</a>
+에서 더 정확하게 확인하실 수 있습니다.
 
 ## UserRole Enum 열거형 상수 정의
 
@@ -729,7 +731,7 @@ public class WebConfig {
 스프링의 @Configuration 어노테이션은 어노테이션기반 환경구성을 돕는다.  
 webconfig 를 따로 만들어서 빈을 등록해주고 등록 순서를 @Order(1) 로 가장 첫번째로 실행할 수 있도록 등록합니다.
 
-[스프링 @Configuration 어노테이션 예제](http://tech.javacafe.io/spring/2018/11/04/%EC%8A%A4%ED%94%84%EB%A7%81-Configuration-%EC%96%B4%EB%85%B8%ED%85%8C%EC%9D%B4%EC%85%98-%EC%98%88%EC%A0%9C/){:target="_blank"}
+<a href="http://tech.javacafe.io/spring/2018/11/04/%EC%8A%A4%ED%94%84%EB%A7%81-Configuration-%EC%96%B4%EB%85%B8%ED%85%8C%EC%9D%B4%EC%85%98-%EC%98%88%EC%A0%9C/" target="_blank">스프링 @Configuration 어노테이션 예제</a>
 
 Mapper 확인을 위해서 Controller 를 수정하겠습니다.
 
@@ -841,12 +843,12 @@ public class ApplicationTest {
     - 테스트 결과 검증
     - 실제로 DB에 insert 되었는지 확인하기 위해 조회후, 입력된 값 확인
 
-[JUnit 강좌 영상](https://www.youtube.com/watch?v=tyZMdwT3rIY){:target="_blank"}
+<a href="https://www.youtube.com/watch?v=tyZMdwT3rIY" target="_blank">JUnit 강좌 영상</a>
 
 given, when, then은 BDD(Behaviour-Driven Development)에서 사용하는 용어입니다.  
 JUnit에선 이를 명시적으로 지원해주지 않아 주석으로 표현했습니다.
 
-[전문 BDD 프레임워크로 Groovy기반의 Spock](https://jojoldu.tistory.com/228){:target="_blank"}
+<a href="https://jojoldu.tistory.com/228" target="_blank">전문 BDD 프레임워크로 Groovy기반의 Spock</a>
 
 이제 정상적으로 DB에 자료가 쌓이는지 확인하기 위해서 Controller 를 구현하여 직접 눈으로 확인해 보겠습니다.
 
@@ -1162,7 +1164,7 @@ public class Application {
 ## DelegatingFilterProxy VS DispatcherServlet
 
 스프링을 사용해본 분이라면, DelegatingFilterProxy가 DispatcherServlet과 동작방식이 매우 비슷한 것을 알 수 있다.  
-둘다 [Facade](https://ko.wikipedia.org/wiki/%ED%8D%BC%EC%82%AC%EB%93%9C_%ED%8C%A8%ED%84%B4){:target="_blank"}
+둘다 <a href="https://ko.wikipedia.org/wiki/%ED%8D%BC%EC%82%AC%EB%93%9C_%ED%8C%A8%ED%84%B4" target="_blank">Facade</a>
 로서, `사용자의 요청을 가장먼저 받아서 요청을 처리할 곳`으로 전가한다.  
 그렇다면 사용자의 요청을 누가 먼저처리할까? 누가 우선순위가 더 높을까?
 
@@ -1220,7 +1222,7 @@ public class WebSecurityConfig extends WebSecurityConfigurerAdapter {
 
 ### 1. SecurityConfig
 
-[WebSecurityConfigurerAdapter DOCS](https://docs.spring.io/spring-security/site/docs/current/api/org/springframework/security/config/annotation/web/configuration/WebSecurityConfigurerAdapter.html){:target="_blank"}
+<a href="https://docs.spring.io/spring-security/site/docs/current/api/org/springframework/security/config/annotation/web/configuration/WebSecurityConfigurerAdapter.html" target="_blank">WebSecurityConfigurerAdapter DOCS</a>
 
 configure 메소드는 `인증을 담당할 프로바이더 구현체를 설정, 필터 등록을 하는 메소드`이다.  
 WebSecurityConfigurerAdapter 추상 클래스를 상속 받는다.  
@@ -1232,7 +1234,7 @@ WebSecurityConfigurerAdapter 추상 클래스를 상속 받는다.
 
 ### 2. FormLoginFilter
 
-[AbstractAuthenticationProcessingFilter DOCS](https://docs.spring.io/spring-security/site/docs/4.2.12.RELEASE/apidocs/org/springframework/security/web/authentication/AbstractAuthenticationProcessingFilter.html){:target="_blank"}
+<a href="https://docs.spring.io/spring-security/site/docs/4.2.12.RELEASE/apidocs/org/springframework/security/web/authentication/AbstractAuthenticationProcessingFilter.html" target="_blank">AbstractAuthenticationProcessingFilter DOCS</a>
 
 - `AbstractAuthenticationProcessingFilter 추상 클래스`
     - 웹 기반 인증 요청에 사용. 폼 POST, SSO 정보 또는 기타 사용자가 제공한 `크리덴셜(크리덴셜은 사용자가 본인을 증명하는 수단)`을 포함한 요청을 처리.
@@ -1483,7 +1485,7 @@ public class FormLoginAuthenticationProvider implements AuthenticationProvider {
 }
 ~~~
 
-[AuthenticationProvider DOCS](https://docs.spring.io/spring-security/site/docs/4.2.12.RELEASE/apidocs/org/springframework/security/authentication/AuthenticationProvider.html){:target="_blank"}
+<a href="https://docs.spring.io/spring-security/site/docs/4.2.12.RELEASE/apidocs/org/springframework/security/authentication/AuthenticationProvider.html" target="_blank">AuthenticationProvider DOCS</a>
 
 AuthenticationProvider 인터페이스를 상속 받습니다. 특정 Authentication구현을 처리 할 수있는 클래스를 나타냅니다.  
 `AuthenticationProvider` 인터페이스는 화면에서 입력한 `로그인 정보와 DB에서 가져온 사용자의 정보를 비교해주는 인터페이스`이다.  
@@ -1753,7 +1755,7 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
     - addFilterBefore 필터 등록을 해줍니다.
 - 2. 
     - provider 등록 해줍니다.
-    - [AuthenticationManager DOCS](https://docs.spring.io/spring-security/site/docs/4.2.12.RELEASE/apidocs/org/springframework/security/authentication/AuthenticationManager.html){:target="_blank"}
+    - <a href="https://docs.spring.io/spring-security/site/docs/4.2.12.RELEASE/apidocs/org/springframework/security/authentication/AuthenticationManager.html" target="_blank">AuthenticationManager DOCS</a>
 
 ### Token 발급 결과 확인
 
@@ -1763,7 +1765,9 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
 
 정상적으로 JWT Token 값이 발급되었습니다.
 
-JWT Token 확인은 [JWT IO](https://jwt.io/){:target="_blank"} 에서 할 수 있습니다.
+JWT Token 확인은 
+<a href="https://jwt.io/" target="_blank">JWT IO</a> 
+에서 할 수 있습니다.
 
 JWT Token 발급 글만 정리하는데 엄청난 시간이 소비된거같습니다.  
 회사 일이랑 병행하면서 하다보니 더 힘들었지만 회사 끝나고 틈틈히 작성하고 하다보니 완성이 되긴 했습니다.  
