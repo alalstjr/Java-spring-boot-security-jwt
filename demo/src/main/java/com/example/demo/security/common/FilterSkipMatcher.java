@@ -1,5 +1,6 @@
 package com.example.demo.security.common;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 import javax.servlet.http.HttpServletRequest;
@@ -13,27 +14,11 @@ public class FilterSkipMatcher implements RequestMatcher {
     private final RequestMatcher   processingMatcher;
 
     public FilterSkipMatcher(
-            List<String> pathToSkip,
+            List<AntPathRequestMatcher> pathToSkip,
             String processingPath
     ) {
-        this.orRequestMatcher = new OrRequestMatcher(pathToSkip
-                .stream()
-                .map(this :: httpPath)
-                .collect(Collectors.toList()));
+        this.orRequestMatcher = new OrRequestMatcher(new ArrayList<>(pathToSkip));
         this.processingMatcher = new AntPathRequestMatcher(processingPath);
-    }
-
-    private AntPathRequestMatcher httpPath(String skipPath) {
-        String[] splitStr = skipPath.split(",");
-
-        /*
-         * 배열 [1] httpMathod 방식 post get 인지 구분
-         * 배열 [0] 제외하는 url
-         * */
-        return new AntPathRequestMatcher(
-                splitStr[1],
-                splitStr[0]
-        );
     }
 
     @Override

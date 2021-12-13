@@ -31,6 +31,7 @@
         - [3-4-1. repository save & find Test](#repository-save-&-find-Test)
     - [3-5. REST APIS 만들기](#REST-APIS-만들기)
         - [3-5-1. UserService 구현하기](#UserService-구현하기)
+          - [3-5-1-1. Autowired 사용을 하지 않는 이유](#Autowired-사용을-하지-않는-이유)
         - [3-5-2. AccountController 구현하기](#AccountController-구현하기)
         - [3-5-3. Controller 에서 사용할 DTO 클래스를 생성하기](#Controller-에서-사용할-DTO-클래스를-생성하기)
         - [3-5-4. Account 새로운 유저 생성 확인](#Account-새로운-유저-생성-확인)
@@ -920,6 +921,8 @@ public class WebConfig {
 }
 ~~~
 
+#### Autowired 사용을 하지 않는 이유
+
 보시면 `AccountRepository 필드에 @Autowired가 없습니다.`  
 스프링프레임워크에선 `Bean 을 주입받는 방식`들이 아래와 같이 있는데요.
 
@@ -930,6 +933,22 @@ public class WebConfig {
 이중 가장 `권장하는 방식이 생성자로 주입받는 방식`입니다.  
 (`@Autowired는 비권장방식`입니다.)  
 즉, `생성자로 Bean 객체를 받도록 하면 @Autowired와 동일한 효과`를 볼 수 있다는 것입니다.
+
+Autowired 사용을 하지 않는 이유를 간단하게 요약 해보겠습니다.
+
+1. 순환 참조를 방지할 수 있다.
+   1. 순환 참조가 발생하는 경우 애플리케이션이 구동되지 않는다.
+2. 테스트에 용이하다.
+   1. 단순 POJO를 이용한 테스트 코드를 만들 수 있다.
+3. 코드 속 나쁜 냄새를 없앤다.
+   1. 조금 더 품질 좋은 코드를 만들 수 있다.
+4. 불변성(Immutability)
+5. 오류를 방지할 수 있다.
+   1. 실행 중에 객체가 변하는 것을 막을 수 있다.
+   2. 오류를 사전에 방지할 수 있다.
+
+<a href="https://madplay.github.io/post/why-constructor-injection-is-better-than-field-injection" target="_blank">@Autowired는 비권장방식</a>
+자세한 내용은 링크에서 확인하실 수 있습니다.
 
 그러면 위에서 생성자는 어디있을까요?  
 바로 `@AllArgsConstructor` 에서 해결해줍니다.  
@@ -1279,7 +1298,7 @@ public class FormLoginFilter extends AbstractAuthenticationProcessingFilter {
     }
 
     public FormLoginFilter(
-            String defaultUrl,
+            AntPathRequestMatcher defaultUrl,
             AuthenticationSuccessHandler successHandler,
             AuthenticationFailureHandler failureHandler) {
         super(defaultUrl);
@@ -1730,7 +1749,7 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
     // 1.
     protected FormLoginFilter formLoginFilter() throws Exception {
         FormLoginFilter filter = new FormLoginFilter(
-                "/api/account/login",
+                new AntPathRequestMatcher("/api/account/login", HttpMethod.POST.name()),
                 formLoginAuthenticationSuccessHandler,
                 formLoginAuthenticationFailureHandler
         );
@@ -1859,16 +1878,16 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
     }
 
     private JwtAuthenticationFilter jwtFilter() throws Exception {
-        List<String> skipPath = new ArrayList<>();
+        List<AntPathRequestMatcher> skipPath = new ArrayList<>();
 
         // Static 정보 접근 허용
-        skipPath.add("GET,/error");
-        skipPath.add("GET,/favicon.ico");
-        skipPath.add("GET,/static");
-        skipPath.add("GET,/static/**");
+        skipPath.add(new AntPathRequestMatcher("/error", HttpMethod.GET.name()));
+        skipPath.add(new AntPathRequestMatcher("/favicon.ico", HttpMethod.GET.name()));
+        skipPath.add(new AntPathRequestMatcher("/static", HttpMethod.GET.name()));
+        skipPath.add(new AntPathRequestMatcher("/static/**", HttpMethod.GET.name()));
 
-        skipPath.add("POST,/api/account");
-        skipPath.add("POST,/api/account/login");
+        skipPath.add(new AntPathRequestMatcher("/api/account", HttpMethod.POST.name()));
+        skipPath.add(new AntPathRequestMatcher("/api/account/login", HttpMethod.POST.name()));
 
         FilterSkipMatcher matcher = new FilterSkipMatcher(
                 skipPath,
@@ -2176,27 +2195,11 @@ public class FilterSkipMatcher implements RequestMatcher {
     private final RequestMatcher   processingMatcher;
 
     public FilterSkipMatcher(
-            List<String> pathToSkip,
+            List<AntPathRequestMatcher> pathToSkip,
             String processingPath
     ) {
-        this.orRequestMatcher = new OrRequestMatcher(pathToSkip
-                .stream()
-                .map(this :: httpPath)
-                .collect(Collectors.toList()));
+        this.orRequestMatcher = new OrRequestMatcher(new ArrayList<>(pathToSkip));
         this.processingMatcher = new AntPathRequestMatcher(processingPath);
-    }
-
-    private AntPathRequestMatcher httpPath(String skipPath) {
-        String[] splitStr = skipPath.split(",");
-
-        /*
-         * 배열 [1] httpMathod 방식 post get 인지 구분
-         * 배열 [0] 제외하는 url
-         * */
-        return new AntPathRequestMatcher(
-                splitStr[1],
-                splitStr[0]
-        );
     }
 
     @Override
@@ -2211,6 +2214,10 @@ public class FilterSkipMatcher implements RequestMatcher {
 ![token-1](/images/token-1.png)
 ![token-2](/images/token-2.png)
 ![token-4](/images/token-4.png)
+
+Bearer 설정이 따로 없는 경우 아래 와같이 확인 가능
+
+![token-4-or](/images/token-4-or.png)
 
 # 공부에 도움이 많이 된 출처!
 

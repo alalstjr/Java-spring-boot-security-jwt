@@ -13,6 +13,7 @@ import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.web.authentication.AbstractAuthenticationProcessingFilter;
 import org.springframework.security.web.authentication.AuthenticationFailureHandler;
 import org.springframework.security.web.authentication.AuthenticationSuccessHandler;
+import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
 
 public class FormLoginFilter extends AbstractAuthenticationProcessingFilter {
 
@@ -26,7 +27,7 @@ public class FormLoginFilter extends AbstractAuthenticationProcessingFilter {
     }
 
     public FormLoginFilter(
-            String defaultUrl,
+            AntPathRequestMatcher defaultUrl,
             AuthenticationSuccessHandler successHandler,
             AuthenticationFailureHandler failureHandler) {
         super(defaultUrl);

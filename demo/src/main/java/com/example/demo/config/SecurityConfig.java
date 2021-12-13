@@ -21,6 +21,7 @@ import org.springframework.security.config.annotation.web.configuration.EnableWe
 import org.springframework.security.config.annotation.web.configuration.WebSecurityConfigurerAdapter;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
 
 @Configuration
 @EnableWebSecurity
@@ -42,7 +43,7 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
     // 1.
     protected FormLoginFilter formLoginFilter() throws Exception {
         FormLoginFilter filter = new FormLoginFilter(
-                "/api/account/login",
+                new AntPathRequestMatcher("/api/account/login", HttpMethod.POST.name()),
                 formLoginAuthenticationSuccessHandler,
                 formLoginAuthenticationFailureHandler
         );
@@ -102,16 +103,16 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
     }
 
     private JwtAuthenticationFilter jwtFilter() throws Exception {
-        List<String> skipPath = new ArrayList<>();
+        List<AntPathRequestMatcher> skipPath = new ArrayList<>();
 
         // Static 정보 접근 허용
-        skipPath.add("GET,/error");
-        skipPath.add("GET,/favicon.ico");
-        skipPath.add("GET,/static");
-        skipPath.add("GET,/static/**");
+        skipPath.add(new AntPathRequestMatcher("/error", HttpMethod.GET.name()));
+        skipPath.add(new AntPathRequestMatcher("/favicon.ico", HttpMethod.GET.name()));
+        skipPath.add(new AntPathRequestMatcher("/static", HttpMethod.GET.name()));
+        skipPath.add(new AntPathRequestMatcher("/static/**", HttpMethod.GET.name()));
 
-        skipPath.add("POST,/api/account");
-        skipPath.add("POST,/api/account/login");
+        skipPath.add(new AntPathRequestMatcher("/api/account", HttpMethod.POST.name()));
+        skipPath.add(new AntPathRequestMatcher("/api/account/login", HttpMethod.POST.name()));
 
         FilterSkipMatcher matcher = new FilterSkipMatcher(
                 skipPath,
