@@ -1684,7 +1684,7 @@ public class JwtFactory {
                     .withIssuer("jjunpro")
                     .withClaim("USERNAME", userDetails.getUsername())
                     .withClaim("USER_ROLE", role)
-                    .withClaim("EXP", new Date(System.currentTimeMillis() + 864000000))
+                    .withExpiresAt(new Date(System.currentTimeMillis() + (1000 * 60 * 60 * 24)))
                     .sign(generateAlgorithm());
         } catch (Exception e) {
             log.error(e.getMessage());
